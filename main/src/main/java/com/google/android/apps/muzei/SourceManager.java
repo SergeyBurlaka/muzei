@@ -24,32 +24,26 @@ import android.arch.lifecycle.Observer;
 import android.arch.lifecycle.OnLifecycleEvent;
 import android.content.ComponentName;
 import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
-import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.util.Log;
-import android.widget.Toast;
 
+import com.google.android.apps.muzei.api.provider.MuzeiArtProvider;
 import com.google.android.apps.muzei.featuredart.FeaturedArtSource;
 import com.google.android.apps.muzei.room.MuzeiDatabase;
 import com.google.android.apps.muzei.room.Source;
-import com.google.android.apps.muzei.sync.TaskQueueService;
 import com.google.firebase.analytics.FirebaseAnalytics;
 
 import net.nurik.roman.muzei.BuildConfig;
-import net.nurik.roman.muzei.R;
 
-import static com.google.android.apps.muzei.api.internal.ProtocolConstants.ACTION_HANDLE_COMMAND;
-import static com.google.android.apps.muzei.api.internal.ProtocolConstants.ACTION_SUBSCRIBE;
-import static com.google.android.apps.muzei.api.internal.ProtocolConstants.EXTRA_COMMAND_ID;
-import static com.google.android.apps.muzei.api.internal.ProtocolConstants.EXTRA_SUBSCRIBER_COMPONENT;
-import static com.google.android.apps.muzei.api.internal.ProtocolConstants.EXTRA_TOKEN;
+import static com.google.android.apps.muzei.api.internal.ProtocolConstants.KEY_COMMAND;
+import static com.google.android.apps.muzei.api.internal.ProtocolConstants.METHOD_TRIGGER_COMMAND;
 
 /**
- * Class responsible for managing interactions with sources such as subscribing, unsubscribing, and sending actions.
+ * Class responsible for managing interactions with sources such as selecting and sending actions.
  */
 public class SourceManager implements LifecycleObserver {
     private static final String TAG = "SourceManager";
@@ -58,51 +52,23 @@ public class SourceManager implements LifecycleObserver {
 
     private final Context mContext;
 
-    private SourcePackageChangeReceiver mSourcePackageChangeReceiver;
-
     public SourceManager(Context context) {
         mContext = context;
     }
 
     @OnLifecycleEvent(Lifecycle.Event.ON_CREATE)
     public void subscribeToSelectedSource() {
-        // Register for package change events
-        mSourcePackageChangeReceiver = new SourcePackageChangeReceiver();
-        IntentFilter packageChangeFilter = new IntentFilter();
-        packageChangeFilter.addDataScheme("package");
-        packageChangeFilter.addAction(Intent.ACTION_PACKAGE_CHANGED);
-        packageChangeFilter.addAction(Intent.ACTION_PACKAGE_REPLACED);
-        packageChangeFilter.addAction(Intent.ACTION_PACKAGE_REMOVED);
-        mContext.registerReceiver(mSourcePackageChangeReceiver, packageChangeFilter);
-
         final LiveData<Source> sourceLiveData = MuzeiDatabase.getInstance(mContext).sourceDao().getCurrentSource();
         sourceLiveData.observeForever(new Observer<Source>() {
             @Override
             public void onChanged(@Nullable final Source source) {
                 sourceLiveData.removeObserver(this);
-                if (source != null) {
-                    subscribe(mContext, source);
-                } else {
+                if (source == null) {
                     // Select the default source
                     selectSource(mContext, new ComponentName(mContext, FeaturedArtSource.class));
                 }
             }
         });
-    }
-
-    @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
-    public void unsubscribeToSelectedSource() {
-        final LiveData<Source> sourceLiveData = MuzeiDatabase.getInstance(mContext).sourceDao().getCurrentSource();
-        sourceLiveData.observeForever(new Observer<Source>() {
-            @Override
-            public void onChanged(@Nullable final Source source) {
-                sourceLiveData.removeObserver(this);
-                if (source != null) {
-                    unsubscribe(mContext, source);
-                }
-            }
-        });
-        mContext.unregisterReceiver(mSourcePackageChangeReceiver);
     }
 
     public interface Callback {
@@ -131,8 +97,6 @@ public class SourceManager implements LifecycleObserver {
 
                 database.beginTransaction();
                 if (selectedSource != null) {
-                    unsubscribe(context, selectedSource);
-
                     // Unselect the old source
                     selectedSource.selected = false;
                     database.sourceDao().update(selectedSource);
@@ -153,10 +117,7 @@ public class SourceManager implements LifecycleObserver {
                 database.endTransaction();
                 sendSelectedSourceAnalytics(context, source);
 
-                subscribe(context, newSource);
-
-                // Ensure the artwork from the newly selected source is downloaded
-                context.startService(TaskQueueService.getDownloadCurrentArtworkIntent(context));
+                // TODO Confirm that there's nothing left to do here
                 return null;
             }
 
@@ -194,51 +155,19 @@ public class SourceManager implements LifecycleObserver {
             public void onChanged(@Nullable final Source source) {
                 sourceLiveData.removeObserver(this);
                 if (source != null) {
-                    ComponentName selectedSource = source.componentName;
-                    try {
-                        context.startService(new Intent(ACTION_HANDLE_COMMAND)
-                                .setComponent(selectedSource)
-                                .putExtra(EXTRA_COMMAND_ID, id));
-                    } catch (IllegalStateException|SecurityException e) {
-                        Log.i(TAG, "Sending action + " + id + " to " + selectedSource
-                                + " failed; switching to default.", e);
-                        Toast.makeText(context, R.string.source_unavailable, Toast.LENGTH_LONG).show();
-                        selectSource(context, new ComponentName(context, FeaturedArtSource.class));
-                    }
+                    new Thread() {
+                        @Override
+                        public void run() {
+                            Uri contentUri = MuzeiArtProvider.getContentUri(context, source.componentName);
+                            Bundle extras = new Bundle();
+                            extras.putInt(KEY_COMMAND, id);
+                            context.getContentResolver().call(contentUri,
+                                    METHOD_TRIGGER_COMMAND,
+                                    contentUri.toString(), extras);
+                        }
+                    }.start();
                 }
             }
         });
-    }
-
-    static void subscribe(Context context, @NonNull Source source) {
-        // Migrate any legacy data to the ContentProvider
-        ComponentName selectedSource = source.componentName;
-        try {
-            // Ensure that we have a valid service before subscribing
-            context.getPackageManager().getServiceInfo(selectedSource, 0);
-            context.startService(new Intent(ACTION_SUBSCRIBE)
-                    .setComponent(selectedSource)
-                    .putExtra(EXTRA_SUBSCRIBER_COMPONENT,
-                            new ComponentName(context, SourceSubscriberService.class))
-                    .putExtra(EXTRA_TOKEN, selectedSource.flattenToShortString()));
-        } catch (PackageManager.NameNotFoundException|IllegalStateException|SecurityException e) {
-            Log.i(TAG, "Selected source " + selectedSource
-                    + " is no longer available; switching to default.", e);
-            Toast.makeText(context, R.string.source_unavailable, Toast.LENGTH_LONG).show();
-            selectSource(context, new ComponentName(context, FeaturedArtSource.class));
-        }
-    }
-
-    private static void unsubscribe(Context context, @NonNull Source source) {
-        try {
-            context.startService(new Intent(ACTION_SUBSCRIBE)
-                    .setComponent(source.componentName)
-                    .putExtra(EXTRA_SUBSCRIBER_COMPONENT,
-                            new ComponentName(context, SourceSubscriberService.class))
-                    .putExtra(EXTRA_TOKEN, (String) null));
-        } catch (IllegalStateException e) {
-            Log.i(TAG, "Unsubscribing to " + source.componentName
-                    + " failed.", e);
-        }
     }
 }

@@ -14,21 +14,21 @@
  * limitations under the License.
  */
 
-apply plugin: 'com.android.application'
+package com.example.muzei.examplesource500px;
 
-dependencies {
-    implementation "com.squareup.retrofit2:retrofit:2.3.0"
-    implementation "com.squareup.retrofit2:converter-gson:2.3.0"
-    implementation "com.android.support:support-compat:$rootProject.ext.supportLibraryVersion"
-    //implementation "com.google.android.apps.muzei:muzei-api:+"
-    implementation project(':api')
-}
+import android.content.Intent;
+import android.support.v4.app.JobIntentService;
 
-android {
-    compileSdkVersion rootProject.ext.compileSdkVersion
+import com.google.android.apps.muzei.api.provider.MuzeiArtProvider;
 
-    defaultConfig {
-        minSdkVersion 19
-        targetSdkVersion rootProject.ext.targetSdkVersion
+public class FiveHundredPxExampleArtProvider extends MuzeiArtProvider {
+    @Override
+    protected void onLoadRequested(final boolean initial) {
+        if (getContext() == null) {
+            return;
+        }
+        JobIntentService.enqueueWork(getContext(), FiveHundredPxExampleArtJobIntentService.class,
+                0, new Intent());
     }
 }
+

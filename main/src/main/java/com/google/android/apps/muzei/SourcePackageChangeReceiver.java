@@ -20,17 +20,17 @@ import android.arch.lifecycle.Lifecycle;
 import android.arch.lifecycle.LifecycleOwner;
 import android.arch.lifecycle.LifecycleRegistry;
 import android.arch.lifecycle.Observer;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.support.v4.content.WakefulBroadcastReceiver;
 import android.text.TextUtils;
 import android.util.Log;
 
-import com.google.android.apps.muzei.featuredart.FeaturedArtSource;
+import com.google.android.apps.muzei.featuredart.FeaturedArtProvider;
 import com.google.android.apps.muzei.room.MuzeiDatabase;
 import com.google.android.apps.muzei.room.Source;
 
@@ -39,7 +39,7 @@ import com.google.android.apps.muzei.room.Source;
  * a cleanup of sources (in case one was uninstalled), or a data update request to a source
  * if it was updated (its package was replaced).
  */
-public class SourcePackageChangeReceiver extends WakefulBroadcastReceiver implements LifecycleOwner {
+public class SourcePackageChangeReceiver extends BroadcastReceiver implements LifecycleOwner {
     private static final String TAG = "SourcePackageChangeRcvr";
 
     private LifecycleRegistry mLifecycle;
@@ -66,18 +66,14 @@ public class SourcePackageChangeReceiver extends WakefulBroadcastReceiver implem
                     public void onChanged(@Nullable final Source source) {
                         if (source != null && TextUtils.equals(packageName, source.componentName.getPackageName())) {
                             try {
-                                context.getPackageManager().getServiceInfo(source.componentName, 0);
+                                context.getPackageManager().getProviderInfo(source.componentName, 0);
                             } catch (PackageManager.NameNotFoundException e) {
                                 Log.i(TAG, "Selected source " + source.componentName
                                         + " is no longer available; switching to default.");
                                 SourceManager.selectSource(context,
-                                        new ComponentName(context, FeaturedArtSource.class));
+                                        new ComponentName(context, FeaturedArtProvider.class));
                                 return;
                             }
-
-                            // Some other change.
-                            Log.i(TAG, "Source package changed or replaced. Re-subscribing to " + source.componentName);
-                            SourceManager.subscribe(context, source);
                         }
                         mLifecycle.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY);
                         pendingResult.finish();
