@@ -51,9 +51,6 @@ public interface SourceDao {
             "(SELECT sourceComponentName FROM artwork WHERE artwork._id = :artworkId)")
     long getSourceIdForArtworkId(long artworkId);
 
-    @Query("SELECT * FROM sources")
-    LiveData<List<Source>> getSources();
-
     @Query("SELECT * FROM sources ORDER BY selected DESC, component_name")
     List<Source> getSourcesBlocking();
 
@@ -62,6 +59,9 @@ public interface SourceDao {
 
     @Query("SELECT * FROM sources WHERE selected=1 ORDER BY component_name")
     Source getCurrentSourceBlocking();
+
+    @Query("SELECT * FROM sources WHERE selected=1 AND network=1")
+    LiveData<List<Source>> getCurrentSourcesThatWantNetwork();
 
     @Update
     void update(Source source);

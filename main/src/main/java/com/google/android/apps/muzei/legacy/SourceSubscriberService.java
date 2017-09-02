@@ -17,15 +17,21 @@
 package com.google.android.apps.muzei.legacy;
 
 import android.app.IntentService;
-import android.content.ComponentName;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
 
+import com.google.android.apps.muzei.api.MuzeiArtSource;
+import com.google.android.apps.muzei.api.UserCommand;
 import com.google.android.apps.muzei.api.internal.SourceState;
 import com.google.android.apps.muzei.api.provider.Artwork;
 import com.google.android.apps.muzei.api.provider.ProviderContract;
+import com.google.android.apps.muzei.room.MuzeiDatabase;
+import com.google.android.apps.muzei.room.Source;
+import com.google.android.apps.muzei.room.SourceDao;
+
+import java.util.ArrayList;
 
 import static com.google.android.apps.muzei.api.internal.ProtocolConstants.ACTION_PUBLISH_STATE;
 import static com.google.android.apps.muzei.api.internal.ProtocolConstants.EXTRA_STATE;
@@ -50,11 +56,12 @@ public class SourceSubscriberService extends IntentService {
         }
         // Handle API call from source
         String token = intent.getStringExtra(EXTRA_TOKEN);
-        ComponentName selectedSource = LegacySourceManager.getSelectedSource(this);
-        if (selectedSource == null ||
-                !TextUtils.equals(token, selectedSource.flattenToShortString())) {
+        SourceDao sourceDao = MuzeiDatabase.getInstance(this).sourceDao();
+        Source source = sourceDao.getCurrentSourceBlocking();
+        if (source == null ||
+                !TextUtils.equals(token, source.componentName.flattenToShortString())) {
             Log.w(TAG, "Dropping update from non-selected source, token=" + token
-                    + " does not match token for " + selectedSource);
+                    + " does not match token for " + source);
             return;
         }
 
@@ -71,7 +78,21 @@ public class SourceSubscriberService extends IntentService {
             return;
         }
 
-        LegacySourceManager.updateSelectedSourceState(this, state);
+        source.description = state.getDescription();
+        source.wantsNetworkAvailable = state.getWantsNetworkAvailable();
+        source.supportsNextArtwork = false;
+        source.commands = new ArrayList<>();
+        int numSourceActions = state.getNumUserCommands();
+        for (int i = 0; i < numSourceActions; i++) {
+            UserCommand command = state.getUserCommandAt(i);
+            if (command.getId() == MuzeiArtSource.BUILTIN_COMMAND_ID_NEXT_ARTWORK) {
+                source.supportsNextArtwork = true;
+            } else {
+                source.commands.add(command);
+            }
+        }
+
+        sourceDao.update(source);
 
         com.google.android.apps.muzei.api.Artwork currentArtwork = state.getCurrentArtwork();
         if (currentArtwork != null) {
@@ -80,7 +101,8 @@ public class SourceSubscriberService extends IntentService {
                     .persistentUri(currentArtwork.getImageUri())
                     .title(currentArtwork.getTitle())
                     .byline(currentArtwork.getByline())
-                    .attribution(currentArtwork.getAttribution());
+                    .attribution(currentArtwork.getAttribution())
+                    .metadata(currentArtwork.getViewIntent().toUri(Intent.URI_INTENT_SCHEME));
 
             ProviderContract.Artwork.addArtwork(this, LegacyArtProvider.class,
                     builder.build());

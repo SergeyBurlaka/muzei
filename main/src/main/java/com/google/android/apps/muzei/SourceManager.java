@@ -17,11 +17,8 @@
 package com.google.android.apps.muzei;
 
 import android.annotation.SuppressLint;
-import android.arch.lifecycle.Lifecycle;
-import android.arch.lifecycle.LifecycleObserver;
 import android.arch.lifecycle.LiveData;
 import android.arch.lifecycle.Observer;
-import android.arch.lifecycle.OnLifecycleEvent;
 import android.content.ComponentName;
 import android.content.Context;
 import android.net.Uri;
@@ -32,7 +29,6 @@ import android.support.annotation.Nullable;
 import android.util.Log;
 
 import com.google.android.apps.muzei.api.provider.MuzeiArtProvider;
-import com.google.android.apps.muzei.featuredart.FeaturedArtSource;
 import com.google.android.apps.muzei.room.MuzeiDatabase;
 import com.google.android.apps.muzei.room.Source;
 import com.google.firebase.analytics.FirebaseAnalytics;
@@ -45,30 +41,12 @@ import static com.google.android.apps.muzei.api.internal.ProtocolConstants.METHO
 /**
  * Class responsible for managing interactions with sources such as selecting and sending actions.
  */
-public class SourceManager implements LifecycleObserver {
+public class SourceManager {
     private static final String TAG = "SourceManager";
     private static final String USER_PROPERTY_SELECTED_SOURCE = "selected_source";
     private static final String USER_PROPERTY_SELECTED_SOURCE_PACKAGE = "selected_source_package";
 
-    private final Context mContext;
-
-    public SourceManager(Context context) {
-        mContext = context;
-    }
-
-    @OnLifecycleEvent(Lifecycle.Event.ON_CREATE)
-    public void subscribeToSelectedSource() {
-        final LiveData<Source> sourceLiveData = MuzeiDatabase.getInstance(mContext).sourceDao().getCurrentSource();
-        sourceLiveData.observeForever(new Observer<Source>() {
-            @Override
-            public void onChanged(@Nullable final Source source) {
-                sourceLiveData.removeObserver(this);
-                if (source == null) {
-                    // Select the default source
-                    selectSource(mContext, new ComponentName(mContext, FeaturedArtSource.class));
-                }
-            }
-        });
+    private SourceManager() {
     }
 
     public interface Callback {

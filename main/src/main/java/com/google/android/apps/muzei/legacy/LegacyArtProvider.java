@@ -18,15 +18,27 @@ package com.google.android.apps.muzei.legacy;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.pm.ServiceInfo;
 import android.support.annotation.NonNull;
+import android.text.TextUtils;
 import android.util.Log;
+import android.widget.Toast;
 
 import com.google.android.apps.muzei.api.MuzeiArtSource;
 import com.google.android.apps.muzei.api.UserCommand;
 import com.google.android.apps.muzei.api.provider.Artwork;
 import com.google.android.apps.muzei.api.provider.MuzeiArtProvider;
+import com.google.android.apps.muzei.room.MuzeiDatabase;
+import com.google.android.apps.muzei.room.Source;
 
+import net.nurik.roman.muzei.R;
+
+import java.net.URISyntaxException;
 import java.util.List;
+
+import static com.google.android.apps.muzei.api.internal.ProtocolConstants.ACTION_HANDLE_COMMAND;
+import static com.google.android.apps.muzei.api.internal.ProtocolConstants.EXTRA_COMMAND_ID;
 
 /**
  * A MuzeiArtProvider that encapsulates all of the logic for working with MuzeiArtSources
@@ -36,24 +48,70 @@ public class LegacyArtProvider extends MuzeiArtProvider {
 
     @Override
     protected void onLoadRequested(boolean initial) {
-        LegacySourceManager.sendAction(getContext(), MuzeiArtSource.BUILTIN_COMMAND_ID_NEXT_ARTWORK);
+        sendAction(MuzeiArtSource.BUILTIN_COMMAND_ID_NEXT_ARTWORK);
     }
 
     @NonNull
     @Override
     protected String getDescription() {
-        return LegacySourceManager.getDescription(getContext());
+        Context context = getContext();
+        if (context == null) {
+            return super.getDescription();
+        }
+        Source source = MuzeiDatabase.getInstance(getContext()).sourceDao().getCurrentSourceBlocking();
+        if (source == null) {
+            return "No source selected";
+        }
+        ServiceInfo sourceInfo;
+        try {
+            sourceInfo = context.getPackageManager().getServiceInfo(source.componentName, 0);
+        } catch (PackageManager.NameNotFoundException e) {
+            Log.e(TAG, "Unable to retrieve source information", e);
+            LegacySourceManager.invalidateSelectedSource(context);
+            return "No selected source";
+        }
+        String sourceName = "";
+        CharSequence sourceLabel = sourceInfo.loadLabel(context.getPackageManager());
+        if (!TextUtils.isEmpty(sourceLabel)) {
+            sourceName = sourceLabel.toString();
+        }
+        String description = source.description;
+        if (TextUtils.isEmpty(description)) {
+            // Fallback to the description on the source
+            description = sourceInfo.descriptionRes != 0 ? context.getString(sourceInfo.descriptionRes) : "";
+        }
+        return !TextUtils.isEmpty(description)
+                ? (!TextUtils.isEmpty(sourceName) ? sourceName + ": " : "") + description
+                : sourceName;
     }
 
     @NonNull
     @Override
     protected List<UserCommand> getCommands(@NonNull final Artwork artwork) {
-        return LegacySourceManager.getCommands(getContext());
+        Source source = MuzeiDatabase.getInstance(getContext()).sourceDao().getCurrentSourceBlocking();
+        return source != null ? source.commands : super.getCommands(artwork);
     }
 
     @Override
     protected void onCommand(@NonNull Artwork artwork, int id) {
-        LegacySourceManager.sendAction(getContext(), id);
+        sendAction(id);
+    }
+
+    private void sendAction(int id) {
+        Context context = getContext();
+        Source source = MuzeiDatabase.getInstance(context).sourceDao().getCurrentSourceBlocking();
+        if (context == null || source == null) {
+            return;
+        }
+        try {
+            context.startService(new Intent(ACTION_HANDLE_COMMAND)
+                    .setComponent(source.componentName)
+                    .putExtra(EXTRA_COMMAND_ID, id));
+        } catch (IllegalStateException e) {
+            Log.i(TAG, "Sending action + " + id + " to " + source.componentName + " failed", e);
+            Toast.makeText(context, R.string.source_unavailable, Toast.LENGTH_LONG).show();
+            LegacySourceManager.invalidateSelectedSource(context);
+        }
     }
 
     @Override
@@ -62,7 +120,14 @@ public class LegacyArtProvider extends MuzeiArtProvider {
         if (context == null) {
             return false;
         }
-        Intent viewIntent = LegacySourceManager.getViewIntent(getContext());
+        Intent viewIntent = null;
+        if (artwork.getMetadata() != null) {
+            try {
+                viewIntent = Intent.parseUri(artwork.getMetadata(), Intent.URI_INTENT_SCHEME);
+            } catch (URISyntaxException e) {
+                Log.i(TAG, "Unable to parse viewIntent " + artwork.getMetadata(), e);
+            }
+        }
         if (viewIntent != null) {
             try {
                 viewIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);

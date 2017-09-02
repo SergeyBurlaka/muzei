@@ -150,6 +150,8 @@ public abstract class MuzeiArtProvider extends ContentProvider {
                 ProviderContract.Artwork.PERSISTENT_URI);
         allColumnProjectionMap.put(ProviderContract.Artwork.WEB_URI,
                 ProviderContract.Artwork.WEB_URI);
+        allColumnProjectionMap.put(ProviderContract.Artwork.METADATA,
+                ProviderContract.Artwork.METADATA);
         allColumnProjectionMap.put(ProviderContract.Artwork.DATA,
                 ProviderContract.Artwork.DATA);
         allColumnProjectionMap.put(ProviderContract.Artwork.DATE_ADDED,
@@ -681,16 +683,17 @@ public abstract class MuzeiArtProvider extends ContentProvider {
         @Override
         public void onCreate(final SQLiteDatabase db) {
             db.execSQL("CREATE TABLE " + TABLE_NAME + " ("
-                    + BaseColumns._ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
+                    + BaseColumns._ID + " INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,"
                     + ProviderContract.Artwork.TOKEN + " TEXT,"
                     + ProviderContract.Artwork.TITLE + " TEXT,"
                     + ProviderContract.Artwork.BYLINE + " TEXT,"
                     + ProviderContract.Artwork.ATTRIBUTION + " TEXT,"
                     + ProviderContract.Artwork.PERSISTENT_URI + " TEXT,"
                     + ProviderContract.Artwork.WEB_URI + " TEXT,"
+                    + ProviderContract.Artwork.METADATA + " TEXT,"
                     + ProviderContract.Artwork.DATA + " TEXT,"
-                    + ProviderContract.Artwork.DATE_ADDED + " INTEGER,"
-                    + ProviderContract.Artwork.DATE_MODIFIED + " INTEGER);");
+                    + ProviderContract.Artwork.DATE_ADDED + " INTEGER NOT NULL,"
+                    + ProviderContract.Artwork.DATE_MODIFIED + " INTEGER NOT NULL);");
         }
 
         /**

@@ -18,6 +18,8 @@ package com.google.android.apps.muzei.legacy;
 
 import android.arch.lifecycle.Lifecycle;
 import android.arch.lifecycle.LifecycleObserver;
+import android.arch.lifecycle.LiveData;
+import android.arch.lifecycle.Observer;
 import android.arch.lifecycle.OnLifecycleEvent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -25,8 +27,15 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.ConnectivityManager;
 import android.os.Build;
+import android.support.annotation.Nullable;
 
+import com.google.android.apps.muzei.room.MuzeiDatabase;
+import com.google.android.apps.muzei.room.Source;
 import com.google.android.apps.muzei.sync.TaskQueueService;
+
+import java.util.List;
+
+import static com.google.android.apps.muzei.api.internal.ProtocolConstants.ACTION_NETWORK_AVAILABLE;
 
 /**
  * LifecycleObserver responsible for monitoring network connectivity and retrying artwork as necessary
@@ -48,12 +57,28 @@ public class NetworkChangeObserver implements LifecycleObserver {
                     }
                 }
 
-                LegacySourceManager.maybeSendNetworkAvailable(context);
+                final PendingResult pendingResult = goAsync();
+                final LiveData<List<Source>> sourcesLiveData = MuzeiDatabase.getInstance(context).sourceDao()
+                        .getCurrentSourcesThatWantNetwork();
+                sourcesLiveData.observeForever(
+                        new Observer<List<Source>>() {
+                            @Override
+                            public void onChanged(@Nullable final List<Source> sources) {
+                                sourcesLiveData.removeObserver(this);
+                                if (sources != null) {
+                                    for (Source source : sources) {
+                                        context.startService(new Intent(ACTION_NETWORK_AVAILABLE)
+                                                .setComponent(source.componentName));
+                                    }
+                                }
+                                pendingResult.finish();
+                            }
+                        });
             }
         }
     };
 
-    public NetworkChangeObserver(Context context) {
+    NetworkChangeObserver(Context context) {
         mContext = context;
     }
 

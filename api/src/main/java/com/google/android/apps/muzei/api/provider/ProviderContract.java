@@ -71,6 +71,11 @@ public class ProviderContract {
          */
         public static final String WEB_URI = "web_uri";
         /**
+         * The provider specific metadata about the artwork
+         * <P>Type: TEXT</P>
+         */
+        public static final String METADATA = "metadata";
+        /**
          * Path to the file on disk.
          * <p>
          * Note that apps may not have filesystem permissions to directly access

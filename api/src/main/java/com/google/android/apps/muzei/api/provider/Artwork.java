@@ -32,6 +32,7 @@ import static com.google.android.apps.muzei.api.provider.ProviderContract.Artwor
 import static com.google.android.apps.muzei.api.provider.ProviderContract.Artwork.DATA;
 import static com.google.android.apps.muzei.api.provider.ProviderContract.Artwork.DATE_ADDED;
 import static com.google.android.apps.muzei.api.provider.ProviderContract.Artwork.DATE_MODIFIED;
+import static com.google.android.apps.muzei.api.provider.ProviderContract.Artwork.METADATA;
 import static com.google.android.apps.muzei.api.provider.ProviderContract.Artwork.PERSISTENT_URI;
 import static com.google.android.apps.muzei.api.provider.ProviderContract.Artwork.TITLE;
 import static com.google.android.apps.muzei.api.provider.ProviderContract.Artwork.TOKEN;
@@ -52,6 +53,7 @@ public class Artwork {
     private String attribution;
     private Uri persistentUri;
     private Uri webUri;
+    private String metadata;
     private File data;
     private Date dateAdded;
     private Date dateModified;
@@ -147,6 +149,20 @@ public class Artwork {
     }
 
     /**
+     * Returns the provider specific metadata about the artwork.
+     * This is not used by Muzei at all, so can contain any data that makes it easier to query
+     * or otherwise work with your Artwork.
+     *
+     * @return the artwork's metadata, or null if it doesn't exist
+     *
+     * @see Builder#metadata
+     */
+    @Nullable
+    public String getMetadata() {
+        return metadata;
+    }
+
+    /**
      * Returns the {@link File} where a local copy of this artwork will be stored. In almost all cases,
      * you should consider reading and writing artwork by passing the artwork URI to
      * {@link android.content.ContentResolver#openInputStream(Uri)} and
@@ -202,6 +218,7 @@ public class Artwork {
                         .attribution(data.getString(data.getColumnIndex(ATTRIBUTION)))
                         .persistentUri(Uri.parse(data.getString(data.getColumnIndex(PERSISTENT_URI))))
                         .webUri(Uri.parse(data.getString(data.getColumnIndex(WEB_URI))))
+                        .metadata(data.getString(data.getColumnIndex(METADATA)))
                         .build();
         artwork.id = data.getLong(data.getColumnIndex(BaseColumns._ID));
         artwork.data = new File(data.getString(data.getColumnIndex(DATA)));
@@ -223,6 +240,7 @@ public class Artwork {
         if (getWebUri() != null) {
             values.put(WEB_URI, getWebUri().toString());
         }
+        values.put(METADATA, getMetadata());
         return values;
     }
 
@@ -336,6 +354,19 @@ public class Artwork {
         @NonNull
         public Builder webUri(@Nullable Uri webUri) {
             mArtwork.webUri = webUri;
+            return this;
+        }
+
+        /**
+         * Sets the provider specific metadata about the artwork.
+         * This is not used by Muzei at all, so can contain any data that makes it easier to query
+         * or otherwise work with your Artwork.
+         *
+         * @return this {@link Builder}.
+         */
+        @NonNull
+        public Builder metadata(@Nullable String metadata) {
+            mArtwork.metadata = metadata;
             return this;
         }
 
