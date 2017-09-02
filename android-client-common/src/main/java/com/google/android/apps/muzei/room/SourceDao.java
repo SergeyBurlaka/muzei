@@ -63,9 +63,6 @@ public interface SourceDao {
     @Query("SELECT * FROM sources WHERE selected=1 ORDER BY component_name")
     Source getCurrentSourceBlocking();
 
-    @Query("SELECT * FROM sources WHERE selected=1 AND network=1")
-    LiveData<List<Source>> getCurrentSourcesThatWantNetwork();
-
     @Update
     void update(Source source);
 }

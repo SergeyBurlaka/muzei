@@ -68,7 +68,7 @@ public class SourcePackageChangeReceiver extends BroadcastReceiver implements Li
                             try {
                                 context.getPackageManager().getProviderInfo(source.componentName, 0);
                             } catch (PackageManager.NameNotFoundException e) {
-                                Log.i(TAG, "Selected source " + source.componentName
+                                Log.i(TAG, "Selected provider " + source.componentName
                                         + " is no longer available; switching to default.");
                                 SourceManager.selectSource(context,
                                         new ComponentName(context, FeaturedArtProvider.class));

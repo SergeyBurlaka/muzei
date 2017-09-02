@@ -14,17 +14,18 @@
  * limitations under the License.
  */
 
-package com.google.android.apps.muzei.wallpaper;
+package com.google.android.apps.muzei.legacy;
 
 import android.arch.lifecycle.Lifecycle;
 import android.arch.lifecycle.LifecycleObserver;
 import android.arch.lifecycle.OnLifecycleEvent;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.ConnectivityManager;
+import android.os.Build;
 
-import com.google.android.apps.muzei.NetworkChangeReceiver;
 import com.google.android.apps.muzei.sync.TaskQueueService;
 
 /**
@@ -32,15 +33,32 @@ import com.google.android.apps.muzei.sync.TaskQueueService;
  */
 public class NetworkChangeObserver implements LifecycleObserver {
     private final Context mContext;
-    private NetworkChangeReceiver mNetworkChangeReceiver;
+    private BroadcastReceiver mNetworkChangeReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(final Context context, final Intent intent) {
+            boolean hasConnectivity = !intent.getBooleanExtra(
+                    ConnectivityManager.EXTRA_NO_CONNECTIVITY, false);
+            if (hasConnectivity) {
+                // Check with components that may not currently be alive but interested in
+                // network connectivity changes.
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+                    Intent retryIntent = TaskQueueService.maybeRetryDownloadDueToGainedConnectivity(context);
+                    if (retryIntent != null) {
+                        mContext.startService(retryIntent);
+                    }
+                }
+
+                LegacySourceManager.maybeSendNetworkAvailable(context);
+            }
+        }
+    };
 
     public NetworkChangeObserver(Context context) {
         mContext = context;
     }
 
-    @OnLifecycleEvent(Lifecycle.Event.ON_CREATE)
+    @OnLifecycleEvent(Lifecycle.Event.ON_START)
     public void registerReceiver() {
-        mNetworkChangeReceiver = new NetworkChangeReceiver();
         IntentFilter networkChangeFilter = new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION);
         mContext.registerReceiver(mNetworkChangeReceiver, networkChangeFilter);
 
@@ -54,7 +72,7 @@ public class NetworkChangeObserver implements LifecycleObserver {
         }
     }
 
-    @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+    @OnLifecycleEvent(Lifecycle.Event.ON_STOP)
     public void unregisterReceiver() {
         mContext.unregisterReceiver(mNetworkChangeReceiver);
     }

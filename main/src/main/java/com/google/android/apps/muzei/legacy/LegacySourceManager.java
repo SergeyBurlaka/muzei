@@ -59,6 +59,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.android.apps.muzei.api.internal.ProtocolConstants.ACTION_HANDLE_COMMAND;
+import static com.google.android.apps.muzei.api.internal.ProtocolConstants.ACTION_NETWORK_AVAILABLE;
 import static com.google.android.apps.muzei.api.internal.ProtocolConstants.ACTION_SUBSCRIBE;
 import static com.google.android.apps.muzei.api.internal.ProtocolConstants.EXTRA_COMMAND_ID;
 import static com.google.android.apps.muzei.api.internal.ProtocolConstants.EXTRA_SUBSCRIBER_COMPONENT;
@@ -109,6 +110,7 @@ public class LegacySourceManager implements LifecycleObserver, Observer<Source>,
     public LegacySourceManager(Context context) {
         mContext = context;
         mLifecycle = new LifecycleRegistry(this);
+        mLifecycle.addObserver(new NetworkChangeObserver(mContext));
         mLifecycle.addObserver(new LifecycleObserver() {
             @OnLifecycleEvent(Lifecycle.Event.ON_START)
             public void onLegacyArtProviderSelected() {
@@ -227,15 +229,13 @@ public class LegacySourceManager implements LifecycleObserver, Observer<Source>,
 
     @NonNull
     static String getDescription(Context context) {
-        SharedPreferences sharedPrefs = context.getSharedPreferences("muzei_art_sources", 0);
-        String selectedSource = sharedPrefs.getString(PREF_SELECTED_SOURCE, null);
+        ComponentName selectedSource = getSelectedSource(context);
         if (selectedSource == null) {
             return "No selected source";
         }
         ServiceInfo sourceInfo;
         try {
-            sourceInfo = context.getPackageManager().getServiceInfo(
-                    new ComponentName(context, selectedSource), 0);
+            sourceInfo = context.getPackageManager().getServiceInfo(selectedSource, 0);
         } catch (PackageManager.NameNotFoundException e) {
             Log.e(TAG, "Unable to retrieve source information", e);
             invalidateSelectedSource(context);
@@ -245,10 +245,6 @@ public class LegacySourceManager implements LifecycleObserver, Observer<Source>,
         CharSequence sourceLabel = sourceInfo.loadLabel(context.getPackageManager());
         if (!TextUtils.isEmpty(sourceLabel)) {
             sourceName = sourceLabel.toString();
-        }
-        String sourceStateString = sharedPrefs.getString(PREF_SOURCE_STATE, null);
-        if (sourceStateString == null) {
-            return sourceName;
         }
         SourceState state = getSelectedSourceState(context);
         if (state == null) {
@@ -303,6 +299,18 @@ public class LegacySourceManager implements LifecycleObserver, Observer<Source>,
                     + " failed; switching to default.", e);
             Toast.makeText(context, R.string.source_unavailable, Toast.LENGTH_LONG).show();
             invalidateSelectedSource(context);
+        }
+    }
+
+    static void maybeSendNetworkAvailable(Context context) {
+        ComponentName selectedSource = getSelectedSource(context);
+        SourceState state = getSelectedSourceState(context);
+        if (selectedSource == null || state == null) {
+            return;
+        }
+        if (state.getWantsNetworkAvailable()) {
+            context.startService(new Intent(ACTION_NETWORK_AVAILABLE)
+                    .setComponent(selectedSource));
         }
     }
 
