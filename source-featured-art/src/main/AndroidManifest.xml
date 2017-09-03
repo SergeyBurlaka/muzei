@@ -18,14 +18,27 @@
           package="com.google.android.apps.muzei.featuredart" >
 
     <application>
-        <service android:name="com.google.android.apps.muzei.featuredart.FeaturedArtSource"
-                 android:label="@string/featuredart_source_title"
-                 android:description="@string/featuredart_source_description"
-                 android:icon="@drawable/featuredart_ic_source">
+        <provider
+            android:name="com.google.android.apps.muzei.featuredart.FeaturedArtProvider"
+            android:authorities="com.google.android.apps.muzei.featuredart"
+            android:label="@string/featuredart_source_title"
+            android:description="@string/featuredart_source_description"
+            android:icon="@drawable/featuredart_ic_source">
             <intent-filter>
-                <action android:name="com.google.android.apps.muzei.api.MuzeiArtSource" />
+                <action android:name="com.google.android.apps.muzei.api.MuzeiArtProvider" />
             </intent-filter>
             <meta-data android:name="color" android:value="@color/featuredart_color" />
-        </service>
+        </provider>
+        <provider
+            android:name="com.google.android.apps.muzei.featuredart.FeaturedArtDocumentsProvider"
+            android:authorities="com.google.android.apps.muzei.featuredart.documents"
+            android:label="@string/featuredart_source_title"
+            android:grantUriPermissions="true"
+            android:exported="true"
+            android:permission="android.permission.MANAGE_DOCUMENTS">
+            <intent-filter>
+                <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
+            </intent-filter>
+        </provider>
     </application>
 </manifest>

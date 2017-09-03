@@ -36,19 +36,9 @@ public interface SourceDao {
     @Insert
     void insert(Source source);
 
-    @Query("SELECT * FROM sources WHERE _id=:id")
-    Source getSourceById(long id);
-
     @TypeConverters(ComponentNameTypeConverter.class)
     @Query("SELECT * FROM sources WHERE component_name = :componentName")
     Source getSourceByComponentNameBlocking(ComponentName componentName);
-
-    @Query("SELECT _id FROM sources WHERE sources.component_name = " +
-            "(SELECT sourceComponentName FROM artwork WHERE artwork._id = :artworkId)")
-    long getSourceIdForArtworkId(long artworkId);
-
-    @Query("SELECT * FROM sources ORDER BY selected DESC, component_name")
-    List<Source> getSourcesBlocking();
 
     @Query("SELECT * FROM sources WHERE selected=1 ORDER BY component_name")
     LiveData<Source> getCurrentSource();

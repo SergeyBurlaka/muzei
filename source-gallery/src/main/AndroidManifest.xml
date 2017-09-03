@@ -25,19 +25,32 @@
             android:name="com.google.android.apps.muzei.gallery.GalleryProvider"
             android:exported="false"
             android:grantUriPermissions="true"/>
-        <service android:name="com.google.android.apps.muzei.gallery.GalleryArtSource"
-                 android:label="@string/gallery_title"
-                 android:description="@string/gallery_description"
-                 android:icon="@drawable/gallery_ic_source">
+        <provider
+            android:name="com.google.android.apps.muzei.gallery.GalleryArtProvider"
+            android:authorities="com.google.android.apps.muzei.gallery"
+            android:label="@string/gallery_title"
+            android:description="@string/gallery_description"
+            android:icon="@drawable/gallery_ic_source">
             <intent-filter>
-                <action android:name="com.google.android.apps.muzei.api.MuzeiArtSource" />
+                <action android:name="com.google.android.apps.muzei.api.MuzeiArtProvider" />
             </intent-filter>
             <meta-data android:name="settingsActivity"
                        android:value="com.google.android.apps.muzei.gallery.GallerySettingsActivity" />
             <meta-data android:name="setupActivity"
                        android:value="com.google.android.apps.muzei.gallery.GallerySetupActivity" />
-            <meta-data android:name="color" android:value="#4db6ac" />
-        </service>
+            <meta-data android:name="color" android:value="@color/gallery_theme_light" />
+        </provider>
+        <provider
+            android:name="com.google.android.apps.muzei.gallery.GalleryArtDocumentsProvider"
+            android:authorities="com.google.android.apps.muzei.gallery.documents"
+            android:label="@string/gallery_title"
+            android:grantUriPermissions="true"
+            android:exported="true"
+            android:permission="android.permission.MANAGE_DOCUMENTS">
+            <intent-filter>
+                <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
+            </intent-filter>
+        </provider>
 
         <activity android:name="com.google.android.apps.muzei.gallery.GallerySetupActivity"
                   android:label="@string/gallery_title"

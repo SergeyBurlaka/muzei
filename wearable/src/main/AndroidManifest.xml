@@ -59,7 +59,7 @@
             android:description="@string/datalayer_source_description"
             android:icon="@drawable/datalayer_ic_source">
             <intent-filter>
-                <action android:name="com.google.android.apps.muzei.api.MuzeiArtSource" />
+                <action android:name="com.google.android.apps.muzei.api.MuzeiArtProvider" />
             </intent-filter>
             <meta-data android:name="color" android:value="@color/theme_primary" />
         </provider>

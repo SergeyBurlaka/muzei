@@ -82,6 +82,14 @@ public abstract class MuzeiArtProvider extends ContentProvider {
     private static final String TAG = "MuzeiArtProvider";
 
     /**
+     * The {@link Intent} action representing a Muzei art provider. This provider should
+     * declare an <code>&lt;intent-filter&gt;</code> for this action in order to register with
+     * Muzei.
+     */
+    public static final String ACTION_MUZEI_ART_PROVIDER
+            = "com.google.android.apps.muzei.api.MuzeiArtProvider";
+
+    /**
      * Retrieve the content URI for the given {@link MuzeiArtProvider}, allowing you to build
      * custom queries, inserts, updates, and deletes using a {@link ContentResolver}.
      * <p>
@@ -120,7 +128,10 @@ public abstract class MuzeiArtProvider extends ContentProvider {
         } catch (PackageManager.NameNotFoundException e) {
             throw new IllegalArgumentException("Invalid MuzeiArtProvider: " + provider, e);
         }
-        return Uri.parse("content://" + authority + "/" + TABLE_NAME);
+        return new Uri.Builder()
+                .scheme(ContentResolver.SCHEME_CONTENT)
+                .authority(authority)
+                .build();
     }
 
     private static final String TABLE_NAME = "artwork";
@@ -439,7 +450,7 @@ public abstract class MuzeiArtProvider extends ContentProvider {
             String token = values.getAsString(ProviderContract.Artwork.TOKEN);
             if (TextUtils.isEmpty(token)) {
                 // Treat empty strings as null
-                Log.w(TAG, ProviderContract.Artwork.TOKEN + " must be non-empty");
+                Log.w(TAG, ProviderContract.Artwork.TOKEN + " must be non-empty if included");
                 values.remove(token);
             } else {
                 try (Cursor existingData = query(contentUri, new String[] { BaseColumns._ID },
