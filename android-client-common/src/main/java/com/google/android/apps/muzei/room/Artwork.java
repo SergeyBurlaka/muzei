@@ -41,12 +41,7 @@ import java.util.Date;
 /**
  * Artwork's representation in Room
  */
-@Entity(indices = @Index(value = "sourceComponentName"),
-        foreignKeys = @ForeignKey(
-                entity = Source.class,
-                parentColumns = "component_name",
-                childColumns = "sourceComponentName",
-                onDelete = ForeignKey.CASCADE))
+@Entity(indices = @Index(value = "sourceComponentName"))
 public class Artwork {
     @PrimaryKey(autoGenerate = true)
     @ColumnInfo(name = BaseColumns._ID)

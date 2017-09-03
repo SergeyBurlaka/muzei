@@ -26,6 +26,7 @@ import android.content.Intent;
 import android.content.UriMatcher;
 import android.database.Cursor;
 import android.database.DatabaseUtils;
+import android.database.MatrixCursor;
 import android.database.sqlite.SQLiteException;
 import android.net.Uri;
 import android.os.Build;
@@ -41,7 +42,8 @@ import android.util.Log;
 import com.google.android.apps.muzei.api.MuzeiContract;
 import com.google.android.apps.muzei.room.Artwork;
 import com.google.android.apps.muzei.room.MuzeiDatabase;
-import com.google.android.apps.muzei.room.Source;
+import com.google.android.apps.muzei.room.Provider;
+import com.google.android.apps.muzei.room.converter.UserCommandTypeConverter;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -92,11 +94,6 @@ public class MuzeiProvider extends ContentProvider {
      */
     private final HashMap<String, String> allArtworkColumnProjectionMap =
             MuzeiProvider.buildAllArtworkColumnProjectionMap();
-    /**
-     * An identity all column projection mapping for Sources
-     */
-    private final HashMap<String, String> allSourcesColumnProjectionMap =
-            MuzeiProvider.buildAllSourcesColumnProjectionMap();
     private Handler openFileHandler;
 
     /**
@@ -129,42 +126,19 @@ public class MuzeiProvider extends ContentProvider {
         allColumnProjectionMap.put(MuzeiContract.Artwork.COLUMN_NAME_DATE_ADDED,
                 "date_added");
         allColumnProjectionMap.put(MuzeiContract.Sources.TABLE_NAME + "." + BaseColumns._ID,
-                "sources._id");
+                "1 AS sources._id");
         allColumnProjectionMap.put(MuzeiContract.Sources.COLUMN_NAME_COMPONENT_NAME,
-                "component_name");
+                "sourceComponentName AS component_name");
         allColumnProjectionMap.put(MuzeiContract.Sources.COLUMN_NAME_IS_SELECTED,
-                "selected");
+                "1 AS selected");
         allColumnProjectionMap.put(MuzeiContract.Sources.COLUMN_NAME_DESCRIPTION,
-                "description");
+                "\"\" AS description");
         allColumnProjectionMap.put(MuzeiContract.Sources.COLUMN_NAME_WANTS_NETWORK_AVAILABLE,
-                "network");
+                "0 AS network");
         allColumnProjectionMap.put(MuzeiContract.Sources.COLUMN_NAME_SUPPORTS_NEXT_ARTWORK_COMMAND,
-                "supports_next_artwork");
+                "1 AS supports_next_artwork");
         allColumnProjectionMap.put(MuzeiContract.Sources.COLUMN_NAME_COMMANDS,
-                "commands");
-        return allColumnProjectionMap;
-    }
-
-    /**
-     * Creates and initializes a column project for all columns for Sources
-     *
-     * @return The all column projection map for Sources
-     */
-    private static HashMap<String, String> buildAllSourcesColumnProjectionMap() {
-        final HashMap<String, String> allColumnProjectionMap = new HashMap<>();
-        allColumnProjectionMap.put(BaseColumns._ID, BaseColumns._ID);
-        allColumnProjectionMap.put(MuzeiContract.Sources.COLUMN_NAME_COMPONENT_NAME,
-                "component_name");
-        allColumnProjectionMap.put(MuzeiContract.Sources.COLUMN_NAME_IS_SELECTED,
-                "selected");
-        allColumnProjectionMap.put(MuzeiContract.Sources.COLUMN_NAME_DESCRIPTION,
-                "description");
-        allColumnProjectionMap.put(MuzeiContract.Sources.COLUMN_NAME_WANTS_NETWORK_AVAILABLE,
-                "network");
-        allColumnProjectionMap.put(MuzeiContract.Sources.COLUMN_NAME_SUPPORTS_NEXT_ARTWORK_COMMAND,
-                "supports_next_artwork");
-        allColumnProjectionMap.put(MuzeiContract.Sources.COLUMN_NAME_COMMANDS,
-                "commands");
+                "NULL AS commands");
         return allColumnProjectionMap;
     }
 
@@ -245,7 +219,7 @@ public class MuzeiProvider extends ContentProvider {
             return queryArtwork(uri, projection, selection, selectionArgs, sortOrder);
         } else if (MuzeiProvider.uriMatcher.match(uri) == MuzeiProvider.SOURCES ||
                 MuzeiProvider.uriMatcher.match(uri) == MuzeiProvider.SOURCE_ID) {
-            return querySource(uri, projection, selection, selectionArgs, sortOrder);
+            return querySource(uri, projection);
         } else {
             throw new IllegalArgumentException("Unknown URI " + uri);
         }
@@ -257,11 +231,11 @@ public class MuzeiProvider extends ContentProvider {
         if (context == null) {
             return null;
         }
-        SupportSQLiteQueryBuilder qb = SupportSQLiteQueryBuilder.builder(
-                "artwork INNER JOIN sources ON " +
-                "artwork.sourceComponentName=sources.component_name");
+        SupportSQLiteQueryBuilder qb = SupportSQLiteQueryBuilder.builder("artwork");
         qb.columns(computeColumns(projection, allArtworkColumnProjectionMap));
-        String finalSelection = selection;
+        Provider provider = MuzeiDatabase.getInstance(context).providerDao().getCurrentProviderBlocking(context);
+        String finalSelection = DatabaseUtils.concatenateWhere(selection,
+                "artwork.sourceComponentName = " + provider.componentName.flattenToShortString());
         if (MuzeiProvider.uriMatcher.match(uri) == ARTWORK_ID) {
             // If the incoming URI is for a single source identified by its ID, appends "_ID = <artworkId>"
             // to the where clause, so that it selects that single piece of artwork
@@ -271,7 +245,7 @@ public class MuzeiProvider extends ContentProvider {
         qb.selection(finalSelection, selectionArgs);
         String orderBy;
         if (TextUtils.isEmpty(sortOrder)) {
-            orderBy = "selected DESC, date_added DESC";
+            orderBy = "date_added DESC";
         } else {
             orderBy = sortOrder;
         }
@@ -281,29 +255,25 @@ public class MuzeiProvider extends ContentProvider {
         return c;
     }
 
-    private Cursor querySource(@NonNull final Uri uri, final String[] projection, final String selection,
-                                final String[] selectionArgs, final String sortOrder) {
+    private Cursor querySource(@NonNull final Uri uri, final String[] projection) {
         Context context = getContext();
         if (context == null) {
             return null;
         }
-        SupportSQLiteQueryBuilder qb = SupportSQLiteQueryBuilder.builder("sources");
-        qb.columns(computeColumns(projection, allSourcesColumnProjectionMap));
-        String finalSelection = selection;
-        if (MuzeiProvider.uriMatcher.match(uri) == SOURCE_ID) {
-            // If the incoming URI is for a single source identified by its ID, appends "_ID = <sourceId>"
-            // to the where clause, so that it selects that single source
-            finalSelection = DatabaseUtils.concatenateWhere(selection,
-                    "_id = " + uri.getLastPathSegment());
-        }
-        qb.selection(finalSelection, selectionArgs);
-        String orderBy;
-        if (TextUtils.isEmpty(sortOrder))
-            orderBy = "selected DESC, component_name";
-        else
-            orderBy = sortOrder;
-        qb.orderBy(orderBy);
-        final Cursor c = MuzeiDatabase.getInstance(context).query(qb.create());
+        MatrixCursor c = new MatrixCursor(projection);
+        Provider provider = MuzeiDatabase.getInstance(context).providerDao().getCurrentProviderBlocking(context);
+
+        MatrixCursor.RowBuilder row = c.newRow();
+        row.add(BaseColumns._ID, 1L);
+        row.add(MuzeiContract.Sources.COLUMN_NAME_COMPONENT_NAME, provider.componentName);
+        row.add(MuzeiContract.Sources.COLUMN_NAME_IS_SELECTED, true);
+        row.add(MuzeiContract.Sources.COLUMN_NAME_DESCRIPTION, provider.getDescriptionBlocking());
+        row.add(MuzeiContract.Sources.COLUMN_NAME_WANTS_NETWORK_AVAILABLE, false);
+        row.add(MuzeiContract.Sources.COLUMN_NAME_SUPPORTS_NEXT_ARTWORK_COMMAND,
+                provider.getSupportsNextArtworkBlocking());
+        row.add(MuzeiContract.Sources.COLUMN_NAME_COMMANDS,
+                UserCommandTypeConverter.commandsListToString(provider.getCommandsBlocking()));
+
         c.setNotificationUri(context.getContentResolver(), uri);
         return c;
     }
@@ -481,7 +451,7 @@ public class MuzeiProvider extends ContentProvider {
     }
 
     /**
-     * Limit the number of cached files per art source to {@link #MAX_CACHE_SIZE}.
+     * Limit the number of cached files per art provider to {@link #MAX_CACHE_SIZE}.
      * @see #MAX_CACHE_SIZE
      */
     public static void cleanupCachedFiles(final Context context) {
@@ -489,19 +459,18 @@ public class MuzeiProvider extends ContentProvider {
             @Override
             public void run() {
                 final MuzeiDatabase database = MuzeiDatabase.getInstance(context);
-                final List<Source> sources = database.sourceDao().getSourcesBlocking();
-                if (sources == null) {
+                final List<ComponentName> providers = database.artworkDao().getDistinctProviders();
+                if (providers == null) {
                     return;
                 }
                 // Access to certain artwork can be persisted through MuzeiDocumentsProvider
                 // We never want to delete these artwork as that would break other apps
                 final Set<Uri> persistedUris = MuzeiDocumentsProvider.getPersistedArtworkUris(context);
                 // Loop through each source, cleaning up old artwork
-                for (Source source : sources) {
-                    final ComponentName componentName = source.componentName;
+                for (ComponentName componentName : providers) {
                     // Now use that ComponentName to look through the past artwork from that source
                     final List<Artwork> artworkList = database.artworkDao()
-                            .getArtworkForSourceIdBlocking(source.id);
+                            .getArtworkByComponentName(componentName);
                     if (artworkList == null || artworkList.isEmpty()) {
                         continue;
                     }

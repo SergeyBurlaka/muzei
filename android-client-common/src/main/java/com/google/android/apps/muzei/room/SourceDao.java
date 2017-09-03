@@ -41,10 +41,6 @@ public interface SourceDao {
 
     @TypeConverters(ComponentNameTypeConverter.class)
     @Query("SELECT * FROM sources WHERE component_name = :componentName")
-    LiveData<Source> getSourceByComponentName(ComponentName componentName);
-
-    @TypeConverters(ComponentNameTypeConverter.class)
-    @Query("SELECT * FROM sources WHERE component_name = :componentName")
     Source getSourceByComponentNameBlocking(ComponentName componentName);
 
     @Query("SELECT _id FROM sources WHERE sources.component_name = " +

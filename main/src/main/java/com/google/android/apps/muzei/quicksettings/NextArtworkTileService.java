@@ -35,11 +35,9 @@ import android.support.annotation.RequiresApi;
 import android.widget.Toast;
 
 import com.google.android.apps.muzei.MuzeiWallpaperService;
-import com.google.android.apps.muzei.SourceManager;
-import com.google.android.apps.muzei.api.MuzeiArtSource;
 import com.google.android.apps.muzei.event.WallpaperActiveStateChangedEvent;
 import com.google.android.apps.muzei.room.MuzeiDatabase;
-import com.google.android.apps.muzei.room.Source;
+import com.google.android.apps.muzei.room.Provider;
 import com.google.firebase.analytics.FirebaseAnalytics;
 
 import net.nurik.roman.muzei.R;
@@ -55,7 +53,7 @@ import org.greenrobot.eventbus.Subscribe;
 @RequiresApi(api = Build.VERSION_CODES.N)
 public class NextArtworkTileService extends TileService implements LifecycleOwner {
     private LifecycleRegistry mLifecycle;
-    private LiveData<Source> mSourceLiveData;
+    private LiveData<Provider> mProviderLiveData;
     private boolean mWallpaperActive = false;
 
     @Override
@@ -78,13 +76,12 @@ public class NextArtworkTileService extends TileService implements LifecycleOwne
 
     @Override
     public void onStartListening() {
-        // Start listening for source changes, which will include when a source
-        // starts or stops supporting the 'Next Artwork' command
-        mSourceLiveData = MuzeiDatabase.getInstance(this).sourceDao().getCurrentSource();
-        mSourceLiveData.observe(this, new Observer<Source>() {
+        // Start listening for provider changes
+        mProviderLiveData = MuzeiDatabase.getInstance(this).providerDao().getCurrentProvider(this);
+        mProviderLiveData.observe(this, new Observer<Provider>() {
             @Override
-            public void onChanged(@Nullable final Source source) {
-                updateTile(source);
+            public void onChanged(@Nullable final Provider provider) {
+                updateTile(provider);
             }
         });
 
@@ -99,11 +96,11 @@ public class NextArtworkTileService extends TileService implements LifecycleOwne
     @Subscribe
     public void onEventMainThread(final WallpaperActiveStateChangedEvent e) {
         mWallpaperActive = e != null && e.isActive();
-        updateTile(mSourceLiveData.getValue());
+        updateTile(mProviderLiveData.getValue());
     }
 
-    private void updateTile(Source source) {
-        Tile tile = getQsTile();
+    private void updateTile(final Provider provider) {
+        final Tile tile = getQsTile();
         if (tile == null) {
             // We're outside of the onStartListening / onStopListening window
             // We'll update the tile next time onStartListening is called.
@@ -117,19 +114,30 @@ public class NextArtworkTileService extends TileService implements LifecycleOwne
             tile.updateTile();
             return;
         }
-        if (source == null) {
+        if (provider == null) {
             return;
         }
-        if (source.supportsNextArtwork) {
-            tile.setState(Tile.STATE_ACTIVE);
-            tile.setLabel(getString(R.string.action_next_artwork));
-            tile.setIcon(Icon.createWithResource(this, R.drawable.ic_notif_full_next_artwork));
-        } else {
-            tile.setState(Tile.STATE_UNAVAILABLE);
-            tile.setLabel(getString(R.string.action_next_artwork));
-            tile.setIcon(Icon.createWithResource(this, R.drawable.ic_notif_full_next_artwork));
-        }
-        tile.updateTile();
+        provider.getSupportsNextArtwork(new Provider.SupportNextArtworkCallback() {
+            @Override
+            public void onCallback(final boolean supportsNextArtwork) {
+                if (!mLifecycle.getCurrentState().isAtLeast(Lifecycle.State.STARTED)) {
+                    return;
+                }
+                if (supportsNextArtwork) {
+                    tile.setState(Tile.STATE_ACTIVE);
+                    tile.setLabel(getString(R.string.action_next_artwork));
+                    tile.setIcon(Icon.createWithResource(NextArtworkTileService.this,
+                            R.drawable.ic_notif_full_next_artwork));
+                } else {
+                    tile.setState(Tile.STATE_UNAVAILABLE);
+                    tile.setLabel(getString(R.string.action_next_artwork));
+                    tile.setIcon(Icon.createWithResource(NextArtworkTileService.this,
+                            R.drawable.ic_notif_full_next_artwork));
+                }
+                tile.updateTile();
+            }
+        });
+
     }
 
     @Override
@@ -144,7 +152,7 @@ public class NextArtworkTileService extends TileService implements LifecycleOwne
             FirebaseAnalytics.getInstance(NextArtworkTileService.this).logEvent(
                     "tile_next_artwork_click", null);
             // Active means we send the 'Next Artwork' command
-            SourceManager.sendAction(this, MuzeiArtSource.BUILTIN_COMMAND_ID_NEXT_ARTWORK);
+            Provider.nextArtwork(this);
         } else {
             // Inactive means we attempt to activate Muzei
             unlockAndRun(new Runnable() {

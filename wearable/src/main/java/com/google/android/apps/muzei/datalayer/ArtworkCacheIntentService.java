@@ -26,7 +26,6 @@ import com.google.android.apps.muzei.FullScreenActivity;
 import com.google.android.apps.muzei.complications.ArtworkComplicationProviderService;
 import com.google.android.apps.muzei.room.Artwork;
 import com.google.android.apps.muzei.room.MuzeiDatabase;
-import com.google.android.apps.muzei.room.Source;
 import com.google.android.apps.muzei.wearable.ArtworkTransfer;
 import com.google.android.gms.tasks.Tasks;
 import com.google.android.gms.wearable.Asset;
@@ -104,19 +103,11 @@ public class ArtworkCacheIntentService extends IntentService {
             return false;
         }
         Artwork artwork = ArtworkTransfer.fromDataMap(artworkDataMap);
-        // Change it so that all Artwork from the phone is attributed to the DataLayerArtSource
-        artwork.sourceComponentName = new ComponentName(this, DataLayerArtSource.class);
-        // Check if the source info row exists at all.
+        // Change it so that all Artwork from the phone is attributed to the DataLayerArtProvider
+        artwork.sourceComponentName = new ComponentName(this, DataLayerArtProvider.class);
+        // Auto-select the DataLayerArtProvider
         MuzeiDatabase database = MuzeiDatabase.getInstance(this);
-        Source existingSource = database.sourceDao().getSourceByComponentNameBlocking(artwork.sourceComponentName);
-        if (existingSource != null) {
-            existingSource.selected = true;
-            database.sourceDao().update(existingSource);
-        } else {
-            Source newSource = new Source(artwork.sourceComponentName);
-            newSource.selected = true;
-            database.sourceDao().insert(newSource);
-        }
+        database.selectProvider(new ComponentName(this, DataLayerArtProvider.class));
         long id = database.artworkDao().insert(this, artwork);
         if (id == 0) {
             Log.w(TAG, "Unable to write artwork information to MuzeiProvider");

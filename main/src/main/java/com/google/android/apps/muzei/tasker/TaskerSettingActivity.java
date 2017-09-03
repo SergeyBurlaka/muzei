@@ -21,12 +21,8 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 
-import com.google.android.apps.muzei.api.MuzeiArtSource;
-import com.google.android.apps.muzei.api.internal.ProtocolConstants;
-
 import net.nurik.roman.muzei.R;
 
-import static com.twofortyfouram.locale.api.Intent.EXTRA_BUNDLE;
 import static com.twofortyfouram.locale.api.Intent.EXTRA_STRING_BLURB;
 
 /**
@@ -37,9 +33,6 @@ public class TaskerSettingActivity extends Activity {
     protected void onCreate(@Nullable final Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Intent intent = new Intent();
-        Bundle bundle = new Bundle();
-        bundle.putInt(ProtocolConstants.EXTRA_COMMAND_ID, MuzeiArtSource.BUILTIN_COMMAND_ID_NEXT_ARTWORK);
-        intent.putExtra(EXTRA_BUNDLE, bundle);
         intent.putExtra(EXTRA_STRING_BLURB, getString(R.string.action_next_artwork));
         setResult(RESULT_OK, intent);
         finish();

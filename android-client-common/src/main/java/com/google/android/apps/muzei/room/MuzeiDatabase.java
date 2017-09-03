@@ -16,28 +16,42 @@
 
 package com.google.android.apps.muzei.room;
 
+import android.annotation.SuppressLint;
 import android.arch.lifecycle.Observer;
 import android.arch.persistence.db.SupportSQLiteDatabase;
 import android.arch.persistence.room.Database;
 import android.arch.persistence.room.Room;
 import android.arch.persistence.room.RoomDatabase;
 import android.arch.persistence.room.migration.Migration;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.database.sqlite.SQLiteConstraintException;
 import android.support.annotation.NonNull;
+import android.os.AsyncTask;
 import android.support.annotation.Nullable;
 
 import com.google.android.apps.muzei.api.MuzeiContract;
+import com.google.firebase.analytics.FirebaseAnalytics;
+
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 /**
  * Room Database for Muzei
  */
-@Database(entities = {Artwork.class, Source.class}, version = 5)
+@Database(entities = {ProviderEntity.class, Artwork.class, Source.class}, version = 5)
 public abstract class MuzeiDatabase extends RoomDatabase {
+    private static final String USER_PROPERTY_SELECTED_PROVIDER = "selected_provider";
+    private static final String USER_PROPERTY_SELECTED_PROVIDER_PACKAGE = "selected_provider_pkg";
+
     private static MuzeiDatabase sInstance;
 
+    private Executor mExecutor = Executors.newSingleThreadExecutor();
+
     public abstract SourceDao sourceDao();
+
+    public abstract ProviderDao providerDao();
 
     public abstract ArtworkDao artworkDao();
 
@@ -49,13 +63,14 @@ public abstract class MuzeiDatabase extends RoomDatabase {
                     .allowMainThreadQueries()
                     .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build();
-            sInstance.sourceDao().getCurrentSource().observeForever(
-                    new Observer<Source>() {
+            sInstance.providerDao().getCurrentProvider(context).observeForever(
+                    new Observer<Provider>() {
                         @Override
-                        public void onChanged(@Nullable final Source source) {
-                            if (source == null) {
+                        public void onChanged(@Nullable final Provider provider) {
+                            if (provider == null) {
                                 return;
                             }
+                            sendSelectedSourceAnalytics(applicationContext, provider.componentName);
                             applicationContext.getContentResolver()
                                     .notifyChange(MuzeiContract.Sources.CONTENT_URI,null);
                             applicationContext.sendBroadcast(
@@ -67,7 +82,55 @@ public abstract class MuzeiDatabase extends RoomDatabase {
         return sInstance;
     }
 
-    private static final Migration MIGRATION_1_2 = new Migration(1, 2) {
+    public interface ProviderCallback {
+        void onProviderSelected();
+    }
+
+    public void selectProvider(final ComponentName componentName) {
+        selectProvider(componentName, null);
+    }
+
+    @SuppressLint("StaticFieldLeak")
+    public void selectProvider(final ComponentName componentName, final ProviderCallback callback) {
+        new AsyncTask<Void, Void, Void>() {
+            @Override
+            protected Void doInBackground(final Void... voids) {
+                beginTransaction();
+                providerDao().deleteAll();
+                providerDao().insert(new ProviderEntity(componentName));
+                setTransactionSuccessful();
+                endTransaction();
+                return null;
+            }
+
+            @Override
+            protected void onPostExecute(final Void aVoid) {
+                if (callback != null) {
+                    callback.onProviderSelected();
+                }
+            }
+        }.executeOnExecutor(mExecutor);
+    }
+
+    private static void sendSelectedSourceAnalytics(Context context, ComponentName selectedSource) {
+        // The current limit for user property values
+        final int MAX_VALUE_LENGTH = 36;
+        String packageName = selectedSource.getPackageName();
+        if (packageName.length() > MAX_VALUE_LENGTH) {
+            packageName = packageName.substring(packageName.length() - MAX_VALUE_LENGTH);
+        }
+        FirebaseAnalytics.getInstance(context).setUserProperty(USER_PROPERTY_SELECTED_PROVIDER_PACKAGE,
+                packageName);
+        String className = selectedSource.flattenToShortString();
+        className = className.substring(className.indexOf('/')+1);
+        if (className.length() > MAX_VALUE_LENGTH) {
+            className = className.substring(className.length() - MAX_VALUE_LENGTH);
+        }
+        FirebaseAnalytics.getInstance(context).setUserProperty(USER_PROPERTY_SELECTED_PROVIDER,
+                className);
+    }
+
+    private static Migration MIGRATION_1_2 = new Migration(1, 2) {
         @Override
         public void migrate(@NonNull final SupportSQLiteDatabase database) {
             // NO-OP
@@ -173,7 +236,26 @@ public abstract class MuzeiDatabase extends RoomDatabase {
     private static final Migration MIGRATION_4_5 = new Migration(4, 5) {
         @Override
         public void migrate(@NonNull final SupportSQLiteDatabase database) {
-            // NO-OP
+            // Handle Provider
+            database.execSQL("CREATE TABLE provider ("
+                    + "componentName TEXT PRIMARY KEY NOT NULL);");
+
+            // Handle Artwork
+            database.execSQL("CREATE TABLE artwork2 ("
+                    + "_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,"
+                    + "sourceComponentName TEXT,"
+                    + "imageUri TEXT,"
+                    + "title TEXT,"
+                    + "byline TEXT,"
+                    + "attribution TEXT,"
+                    + "token TEXT,"
+                    + "metaFont TEXT NOT NULL,"
+                    + "date_added INTEGER NOT NULL,"
+                    + "viewIntent TEXT);");
+            database.execSQL("INSERT INTO artwork2 "
+                    + "SELECT * FROM artwork");
+            database.execSQL("DROP TABLE artwork");
+            database.execSQL("ALTER TABLE artwork2 RENAME TO artwork");
         }
     };
 }

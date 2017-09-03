@@ -23,8 +23,7 @@ import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
 
-import com.google.android.apps.muzei.SourceManager;
-import com.google.android.apps.muzei.api.MuzeiArtSource;
+import com.google.android.apps.muzei.room.Provider;
 
 /**
  * AppWidgetProvider for Muzei. The actual updating is done asynchronously in
@@ -37,7 +36,7 @@ public class MuzeiAppWidgetProvider extends AppWidgetProvider {
     public void onReceive(Context context, Intent intent) {
         super.onReceive(context, intent);
         if (intent != null && ACTION_NEXT_ARTWORK.equals(intent.getAction())) {
-            SourceManager.sendAction(context.getApplicationContext(), MuzeiArtSource.BUILTIN_COMMAND_ID_NEXT_ARTWORK);
+            Provider.nextArtwork(context);
         }
     }
 

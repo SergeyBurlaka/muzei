@@ -16,30 +16,25 @@
 
 package com.google.android.apps.muzei.room;
 
-import android.arch.persistence.room.ColumnInfo;
-import android.arch.persistence.room.Embedded;
 import android.arch.persistence.room.Entity;
+import android.arch.persistence.room.PrimaryKey;
 import android.arch.persistence.room.TypeConverters;
+import android.content.ComponentName;
 import android.support.annotation.NonNull;
 
-import com.google.android.apps.muzei.api.UserCommand;
-import com.google.android.apps.muzei.room.converter.UserCommandTypeConverter;
-
-import java.util.ArrayList;
-import java.util.List;
+import com.google.android.apps.muzei.room.converter.ComponentNameTypeConverter;
 
 /**
- * The result of a join of the Artwork and its Source.
+ * Provider information's representation in Room
  */
-@Entity
-public class ArtworkSource {
-    @Embedded
-    public Artwork artwork;
-
-    @ColumnInfo(name = "supports_next_artwork")
-    public boolean supportsNextArtwork;
-
-    @TypeConverters(UserCommandTypeConverter.class)
+@Entity(tableName = "provider")
+public class ProviderEntity {
+    @TypeConverters({ComponentNameTypeConverter.class})
+    @PrimaryKey
     @NonNull
-    public List<UserCommand> commands = new ArrayList<>();
+    public ComponentName componentName;
+
+    ProviderEntity(@NonNull ComponentName componentName) {
+        this.componentName = componentName;
+    }
 }

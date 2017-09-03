@@ -53,7 +53,8 @@
 
         <service android:name="com.google.android.apps.muzei.datalayer.ArtworkCacheIntentService" />
 
-        <service android:name="com.google.android.apps.muzei.datalayer.DataLayerArtSource"
+        <provider android:name="com.google.android.apps.muzei.datalayer.DataLayerArtProvider"
+            android:authorities="com.google.android.apps.muzei.datalayer"
             android:label="@string/datalayer_source_title"
             android:description="@string/datalayer_source_description"
             android:icon="@drawable/datalayer_ic_source">
@@ -61,7 +62,7 @@
                 <action android:name="com.google.android.apps.muzei.api.MuzeiArtSource" />
             </intent-filter>
             <meta-data android:name="color" android:value="@color/theme_primary" />
-        </service>
+        </provider>
 
         <service
             android:name="com.google.android.apps.muzei.complications.ArtworkComplicationProviderService"

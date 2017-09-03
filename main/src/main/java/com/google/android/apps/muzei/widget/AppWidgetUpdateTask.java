@@ -43,8 +43,9 @@ import android.widget.RemoteViews;
 import com.google.android.apps.muzei.event.WallpaperActiveStateChangedEvent;
 import com.google.android.apps.muzei.render.BitmapRegionLoader;
 import com.google.android.apps.muzei.render.ImageUtil;
-import com.google.android.apps.muzei.room.ArtworkSource;
+import com.google.android.apps.muzei.room.Artwork;
 import com.google.android.apps.muzei.room.MuzeiDatabase;
+import com.google.android.apps.muzei.room.Provider;
 
 import net.nurik.roman.muzei.R;
 
@@ -56,7 +57,7 @@ import java.io.InputStream;
 /**
  * Async operation used to update the widget or provide a preview for pinning the widget.
  */
-public class AppWidgetUpdateTask extends AsyncTask<ArtworkSource,Void,Boolean> {
+public class AppWidgetUpdateTask extends AsyncTask<Void,Void,Boolean> {
     private static final String TAG = "AppWidgetUpdateTask";
 
     private final Context mContext;
@@ -68,7 +69,7 @@ public class AppWidgetUpdateTask extends AsyncTask<ArtworkSource,Void,Boolean> {
     }
 
     @Override
-    protected Boolean doInBackground(ArtworkSource... params) {
+    protected Boolean doInBackground(Void... params) {
         ComponentName widget = new ComponentName(mContext, MuzeiAppWidgetProvider.class);
         AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(mContext);
         int[] appWidgetIds = appWidgetManager.getAppWidgetIds(widget);
@@ -80,22 +81,21 @@ public class AppWidgetUpdateTask extends AsyncTask<ArtworkSource,Void,Boolean> {
             // No preview to show
             return false;
         }
-        ArtworkSource artworkSource = params != null && params.length == 1
-                ? params[0]
-                : MuzeiDatabase.getInstance(mContext).artworkDao().getCurrentArtworkWithSourceBlocking();
-        if (artworkSource == null) {
+        Artwork artwork = MuzeiDatabase.getInstance(mContext).artworkDao().getCurrentArtworkBlocking();
+        if (artwork == null) {
             Log.w(TAG, "No current artwork found");
             return false;
         }
-        String title = artworkSource.artwork.title;
-        String byline = artworkSource.artwork.byline;
+        String title = artwork.title;
+        String byline = artwork.byline;
         String contentDescription = !TextUtils.isEmpty(title)
                 ? title
                 : byline;
-        Uri imageUri = artworkSource.artwork.getContentUri();
+        Uri imageUri = artwork.getContentUri();
         WallpaperActiveStateChangedEvent wasce = EventBus.getDefault().getStickyEvent(
                 WallpaperActiveStateChangedEvent.class);
-        boolean supportsNextArtwork = wasce != null && wasce.isActive() && artworkSource.supportsNextArtwork;
+        Provider provider = new Provider(mContext, artwork.sourceComponentName);
+        boolean supportsNextArtwork = wasce != null && wasce.isActive() && provider.getSupportsNextArtworkBlocking();
 
         // Update the widget(s) with the new artwork information
         PackageManager packageManager = mContext.getPackageManager();
