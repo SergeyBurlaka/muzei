@@ -41,6 +41,7 @@ import android.widget.Toast;
 import com.google.android.apps.muzei.api.provider.Artwork;
 import com.google.android.apps.muzei.api.provider.ProviderContract;
 import com.google.android.apps.muzei.room.MuzeiDatabase;
+import com.google.android.apps.muzei.room.Provider;
 import com.google.android.apps.muzei.room.Source;
 import com.google.android.apps.muzei.room.SourceDao;
 import com.google.firebase.analytics.FirebaseAnalytics;
@@ -55,7 +56,7 @@ import static com.google.android.apps.muzei.api.internal.ProtocolConstants.EXTRA
 /**
  * Class responsible for managing interactions with sources such as subscribing, unsubscribing, and sending actions.
  */
-public class LegacySourceManager implements LifecycleObserver, Observer<Source>, LifecycleOwner {
+public class LegacySourceManager implements LifecycleObserver, Observer<Provider>, LifecycleOwner {
     private static final String TAG = "SourceManager";
 
     private static final String USER_PROPERTY_SELECTED_SOURCE = "selected_source";
@@ -128,7 +129,7 @@ public class LegacySourceManager implements LifecycleObserver, Observer<Source>,
     private final Context mContext;
     private final LifecycleRegistry mLifecycle;
 
-    private LiveData<Source> sourceLiveData;
+    private LiveData<Provider> providerLiveData;
 
     public LegacySourceManager(Context context) {
         mContext = context;
@@ -170,14 +171,13 @@ public class LegacySourceManager implements LifecycleObserver, Observer<Source>,
     @OnLifecycleEvent(Lifecycle.Event.ON_CREATE)
     public void onMuzeiEnabled() {
         // When Muzei is enabled, we start listening for the current provider
-        // TODO Move to ProviderDao once it is available
-        sourceLiveData = MuzeiDatabase.getInstance(mContext).sourceDao().getCurrentSource();
-        sourceLiveData.observeForever(this);
+        providerLiveData = MuzeiDatabase.getInstance(mContext).providerDao().getCurrentProvider(mContext);
+        providerLiveData.observeForever(this);
     }
 
     @Override
-    public void onChanged(@Nullable Source source) {
-        if (source != null && source.componentName.equals(
+    public void onChanged(@Nullable Provider provider) {
+        if (provider != null && provider.componentName.equals(
                 new ComponentName(mContext, LegacyArtProvider.class))) {
             mLifecycle.handleLifecycleEvent(Lifecycle.Event.ON_START);
         } else {
@@ -188,7 +188,7 @@ public class LegacySourceManager implements LifecycleObserver, Observer<Source>,
     @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
     public void onMuzeiDisabled() {
         mLifecycle.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY);
-        sourceLiveData.removeObserver(this);
+        providerLiveData.removeObserver(this);
     }
 
     static void selectSource(final Context context, @NonNull final ComponentName source) {
