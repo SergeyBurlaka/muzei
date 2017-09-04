@@ -44,7 +44,6 @@
         <provider
             android:name="com.google.android.apps.muzei.gallery.GalleryArtDocumentsProvider"
             android:authorities="com.google.android.apps.muzei.gallery.documents"
-            android:label="@string/gallery_title"
             android:grantUriPermissions="true"
             android:exported="true"
             android:permission="android.permission.MANAGE_DOCUMENTS">

@@ -61,6 +61,9 @@
     <string name="set_as_wallpaper_using_muzei">Wallpaper (using Muzei)</string>
     <string name="set_as_wallpaper_failed">Unable to read artwork</string>
 
+    <string name="legacy_source_title">Legacy Plugins</string>
+    <string name="legacy_source_description">Select plugins built with the legacy API</string>
+
     <string name="tutorial_main">Open the Muzei app to see your wallpaper</string>
     <string name="tutorial_subtitle">Double touch the blurred wallpaper on your home screen to temporarily focus</string>
 

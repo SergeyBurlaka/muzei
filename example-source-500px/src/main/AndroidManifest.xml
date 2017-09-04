@@ -41,7 +41,6 @@
         <provider
             android:name="com.google.android.apps.muzei.api.provider.MuzeiArtDocumentsProvider"
             android:authorities="com.example.muzei.examplesource500px.documents"
-            android:label="@string/source_name"
             android:grantUriPermissions="true"
             android:exported="true"
             android:permission="android.permission.MANAGE_DOCUMENTS">

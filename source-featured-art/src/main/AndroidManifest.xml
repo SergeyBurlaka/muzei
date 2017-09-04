@@ -33,7 +33,6 @@
         <provider
             android:name="com.google.android.apps.muzei.featuredart.FeaturedArtDocumentsProvider"
             android:authorities="com.google.android.apps.muzei.featuredart.documents"
-            android:label="@string/featuredart_source_title"
             android:grantUriPermissions="true"
             android:exported="true"
             android:permission="android.permission.MANAGE_DOCUMENTS">
