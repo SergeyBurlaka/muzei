@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Google Inc.
+ * Copyright 2017 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,34 +18,21 @@ apply plugin: 'com.android.library'
 
 dependencies {
     implementation project(':api')
+    implementation project(':android-client-common')
     implementation "com.android.support:support-compat:$rootProject.ext.supportLibraryVersion"
-    api "android.arch.lifecycle:extensions:$rootProject.ext.lifecycleVersion"
-    annotationProcessor "android.arch.lifecycle:compiler:$rootProject.ext.lifecycleVersion"
-    api "com.android.support:support-core-ui:$rootProject.ext.supportLibraryVersion"
-    api "com.android.support:support-fragment:$rootProject.ext.supportLibraryVersion"
-    api "android.arch.persistence.room:runtime:$rootProject.ext.roomVersion"
-    annotationProcessor "android.arch.persistence.room:compiler:$rootProject.ext.roomVersion"
-    api ("com.google.android.gms:play-services-wearable:$rootProject.ext.googlePlayServicesVersion") {
-        exclude module: 'support-v4'
-    }
     implementation ("com.google.firebase:firebase-core:$rootProject.ext.googlePlayServicesVersion") {
         exclude module: 'support-v4'
     }
 }
 
 android {
+    resourcePrefix 'legacy_'
+
     compileSdkVersion rootProject.ext.compileSdkVersion
 
     defaultConfig {
         minSdkVersion 19
         targetSdkVersion rootProject.ext.targetSdkVersion
-
-        javaCompileOptions {
-            annotationProcessorOptions {
-                arguments = ["room.schemaLocation":
-                                     "$projectDir/schemas".toString()]
-            }
-        }
     }
 
     buildTypes {

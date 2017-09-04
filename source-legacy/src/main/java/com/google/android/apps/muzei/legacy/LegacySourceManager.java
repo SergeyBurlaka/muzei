@@ -26,28 +26,21 @@ import android.arch.lifecycle.Observer;
 import android.arch.lifecycle.OnLifecycleEvent;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.net.Uri;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Toast;
 
-import com.google.android.apps.muzei.api.provider.Artwork;
-import com.google.android.apps.muzei.api.provider.ProviderContract;
 import com.google.android.apps.muzei.room.MuzeiDatabase;
 import com.google.android.apps.muzei.room.Provider;
 import com.google.android.apps.muzei.room.Source;
 import com.google.android.apps.muzei.room.SourceDao;
 import com.google.firebase.analytics.FirebaseAnalytics;
-
-import net.nurik.roman.muzei.BuildConfig;
-import net.nurik.roman.muzei.R;
 
 import static com.google.android.apps.muzei.api.internal.ProtocolConstants.ACTION_SUBSCRIBE;
 import static com.google.android.apps.muzei.api.internal.ProtocolConstants.EXTRA_SUBSCRIBER_COMPONENT;
@@ -255,16 +248,6 @@ public class LegacySourceManager implements LifecycleObserver, Observer<Provider
                 Source source = sourceDao.getCurrentSourceBlocking();
                 source.selected = false;
                 sourceDao.update(source);
-                ProviderContract.Artwork.setArtwork(context, LegacyArtProvider.class,
-                        new Artwork.Builder()
-                                .token("error")
-                                .persistentUri(Uri.fromParts(
-                                        ContentResolver.SCHEME_ANDROID_RESOURCE,
-                                        context.getPackageName(),
-                                        "drawable/" + context.getResources()
-                                                .getResourceEntryName(R.drawable.grumpy_mcpuzzles)))
-                                .title(context.getString(R.string.error_easter_egg))
-                                .build());
             }
         }.start();
     }

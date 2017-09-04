@@ -15,5 +15,6 @@
   -->
 
 <resources>
-    <color name="shortcut_background">#F5F5F5</color>
+    <string name="legacy_source_title">Legacy Plugins</string>
+    <string name="legacy_source_description">Select plugins built with the legacy API</string>
 </resources>

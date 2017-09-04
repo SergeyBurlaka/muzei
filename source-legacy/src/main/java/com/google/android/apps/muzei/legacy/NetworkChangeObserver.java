@@ -26,12 +26,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.ConnectivityManager;
-import android.os.Build;
 import android.support.annotation.Nullable;
 
 import com.google.android.apps.muzei.room.MuzeiDatabase;
 import com.google.android.apps.muzei.room.Source;
-import com.google.android.apps.muzei.sync.TaskQueueService;
 
 import java.util.List;
 
@@ -50,12 +48,6 @@ public class NetworkChangeObserver implements LifecycleObserver {
             if (hasConnectivity) {
                 // Check with components that may not currently be alive but interested in
                 // network connectivity changes.
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-                    Intent retryIntent = TaskQueueService.maybeRetryDownloadDueToGainedConnectivity(context);
-                    if (retryIntent != null) {
-                        mContext.startService(retryIntent);
-                    }
-                }
 
                 final PendingResult pendingResult = goAsync();
                 final LiveData<List<Source>> sourcesLiveData = MuzeiDatabase.getInstance(context).sourceDao()
@@ -86,15 +78,6 @@ public class NetworkChangeObserver implements LifecycleObserver {
     public void registerReceiver() {
         IntentFilter networkChangeFilter = new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION);
         mContext.registerReceiver(mNetworkChangeReceiver, networkChangeFilter);
-
-        // Ensure we retry loading the artwork if the network changed while the wallpaper was disabled
-        ConnectivityManager connectivityManager = (ConnectivityManager) mContext.getSystemService(
-                Context.CONNECTIVITY_SERVICE);
-        Intent retryIntent = TaskQueueService.maybeRetryDownloadDueToGainedConnectivity(mContext);
-        if (retryIntent != null && connectivityManager.getActiveNetworkInfo() != null &&
-                connectivityManager.getActiveNetworkInfo().isConnected()) {
-            mContext.startService(retryIntent);
-        }
     }
 
     @OnLifecycleEvent(Lifecycle.Event.ON_STOP)

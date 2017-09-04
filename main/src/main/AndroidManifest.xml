@@ -64,32 +64,6 @@
                 android:resource="@xml/wallpaper" />
         </service>
 
-        <provider
-            android:name="com.google.android.apps.muzei.legacy.LegacyArtProvider"
-            android:authorities="com.google.android.apps.muzei.legacy"
-            android:label="@string/legacy_source_title"
-            android:description="@string/legacy_source_description"
-            android:icon="@drawable/legacy_ic_source"
-            android:permission="com.google.android.apps.muzei.api.ACCESS_PROVIDER">
-            <intent-filter>
-                <action android:name="com.google.android.apps.muzei.api.MuzeiArtProvider" />
-            </intent-filter>
-            <meta-data android:name="color" android:value="@color/legacy_color" />
-        </provider>
-        <provider
-            android:name="com.google.android.apps.muzei.legacy.LegacyArtDocumentsProvider"
-            android:authorities="com.google.android.apps.muzei.legacy.documents"
-            android:grantUriPermissions="true"
-            android:exported="true"
-            android:permission="android.permission.MANAGE_DOCUMENTS">
-            <intent-filter>
-                <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
-            </intent-filter>
-        </provider>
-
-        <service android:name="com.google.android.apps.muzei.legacy.SourceSubscriberService"
-            android:exported="true" />
-
         <service android:name="com.google.android.apps.muzei.sync.TaskQueueService" />
         <service
             android:name="com.google.android.apps.muzei.sync.DownloadArtworkJobService"
