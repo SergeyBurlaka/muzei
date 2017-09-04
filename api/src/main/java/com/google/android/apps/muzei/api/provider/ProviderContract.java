@@ -33,6 +33,16 @@ import android.support.annotation.RequiresApi;
  * columns as well as helper methods to make it easier to work with the provided data.
  */
 public class ProviderContract {
+    /**
+     * Permission that can be used with your {@link MuzeiArtProvider} to ensure that only your app
+     * and Muzei can read and write its data.
+     * <p>
+     * This is a signature permission that only Muzei can hold.
+     * </p>
+     */
+    public static final String ACCESS_PERMISSION
+            = "com.google.android.apps.muzei.api.ACCESS_PROVIDER";
+
     public static final class Artwork implements BaseColumns {
         /**
          * The token that uniquely defines the artwork. Any inserts using the same non-null token will be considered

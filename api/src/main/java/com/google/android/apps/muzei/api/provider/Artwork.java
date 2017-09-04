@@ -335,7 +335,7 @@ public class Artwork {
          *
          * @return this {@link Builder}.
          *
-         * @see MuzeiArtProvider#openFromPersistentUri(Uri)
+         * @see MuzeiArtProvider#openFile(Artwork)
          */
         @NonNull
         public Builder persistentUri(@Nullable Uri persistentUri) {

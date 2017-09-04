@@ -76,6 +76,121 @@ import static com.google.android.apps.muzei.api.internal.ProtocolConstants.METHO
 /**
  * Base class for a Muzei Live Wallpaper artwork provider. Art providers are a way for other apps to
  * feed wallpapers (called {@linkplain Artwork artworks}) to the Muzei Live Wallpaper.
+ *
+ * <h3>Subclassing {@link MuzeiArtProvider}</h3>
+ *
+ * Subclasses must implement at least the {@link #onLoadRequested(boolean) onLoadRequested} callback method,
+ * which is called whenever Muzei has displayed all available artwork from your provider. It is strongly
+ * recommended to load new artwork at this point and add it via {@link #addArtwork(Artwork)} so that users
+ * can continue to move to the next artwork.
+ * <p> All artwork added via {@link #addArtwork(Artwork)} is available to Muzei. Muzei controls how often
+ * the artwork changes and the order that it proceeds through the artwork. As a convenience, you can use
+ * {@link #setArtwork(Artwork)} to remove all artwork and set just a single new {@link Artwork}. You can,
+ * of course, can and should use {@link ContentResolver#delete(Uri, String, String[])} with
+ * {@link #getContentUri()} to delete specific artwork based on criteria of your choosing.
+ * <p> Many operations are also available in {@link ProviderContract.Artwork}, allowing you to add, update,
+ * delete, and query for artwork from anywhere in your app.
+ *
+ * <h3>Registering your provider</h3>
+ *
+ * Each provider must be added to your application's <code>AndroidManifest.xml</code> file via a
+ * <code>&lt;provider&gt;</code> element.
+ *
+ * <p> The Muzei app discover available providers using Android's {@link Intent} mechanism. Ensure that
+ * your <code>provider</code> definition includes an <code>&lt;intent-filter&gt;</code> with an action of
+ * {@link #ACTION_MUZEI_ART_PROVIDER}. It is strongly recommended to protect access to your provider's
+ * data by adding the {@link ProviderContract#ACCESS_PERMISSION}, which will ensure that only your app and
+ * Muzei can access your data.
+ *
+ * <p> Muzei uses the drawable indicated by the source's <code>android:icon</code> attribute
+ * in the <code>&lt;provider&gt;</code> element to represent the provider in the user interface.
+ * The icon should be completely flat and contain padding, as Muzei will apply some additional
+ * styling to present the icon.
+ *
+ * <p> Lastly, there are a few <code>&lt;meta-data&gt;</code> elements that you should add to your
+ * provider definition:
+ *
+ * <ul>
+ * <li><code>color</code> (optional): should be a hex value representing your app or provider's
+ * brand, for example '#ace5cc'. Note that Muzei may adjust the color (specifically make it
+ * brighter) to better fit in the user interface, so you should use pastel colors when
+ * possible.</li>
+ * <li><code>settingsActivity</code> (optional): if present, should be the qualified
+ * component name for a configuration activity in the provider's package that Muzei can offer
+ * to the user for customizing the extension. This activity must be exported.</li>
+ * <li><code>setupActivity</code> (optional): if present, should be the qualified
+ * component name for an initial setup activity that must be ran before the provider can be
+ * activated. It will be started with {@link android.app.Activity#startActivityForResult} and must
+ * return {@link android.app.Activity#RESULT_OK} for the provider to be activated.This activity must
+ * be exported.</li>
+ * </ul>
+ *
+ * <h3>Example</h3>
+ *
+ * Below is an example source declaration in the manifest:
+ *
+ * <pre class="prettyprint">
+ * &lt;provider android:name=".ExampleArtSource"
+ *     android:authority="com.example.artprovider"
+ *     android:icon="@drawable/ic_source_example"
+ *     android:label="@string/source_title"
+ *     android:description="@string/source_description"
+ *     android:permission="com.google.android.apps.muzei.api.ACCESS_PROVIDER"&gt;
+ *     &lt;intent-filter&gt;
+ *         &lt;action android:name="com.google.android.apps.muzei.api.MuzeiArtProvider" /&gt;
+ *     &lt;/intent-filter&gt;
+ *     &lt;meta-data android:name="color" android:value="#ace5cc" /&gt;
+ *     &lt;!-- A settings activity is optional --&gt;
+ *     &lt;meta-data android:name="settingsActivity"
+ *         android:value=".ExampleSettingsActivity" /&gt;
+ * &lt;/provider&gt;
+ * </pre>
+ *
+ * If a <code>settingsActivity</code> meta-data element is present, an activity with the given
+ * component name should be defined and exported in the application's manifest as well. Muzei
+ * will set the {@link #EXTRA_FROM_MUZEI_SETTINGS} extra to true in the launch intent for this
+ * activity. An example is shown below:
+ *
+ * <pre class="prettyprint">
+ * &lt;activity android:name=".ExampleSettingsActivity"
+ *     android:label="@string/title_settings"
+ *     android:exported="true" /&gt;
+ * </pre>
+ *
+ * Finally, below is a simple example {@link MuzeiArtProvider} subclass that publishes a single,
+ * static artwork:
+ *
+ * <pre class="prettyprint">
+ * public class ExampleArtSource extends MuzeiArtProvider {
+ *     protected void onLoadRequested(boolean initial) {
+ *         setArtwork(new Artwork.Builder()
+ *                 .persistentUri(Uri.parse("http://example.com/image.jpg"))
+ *                 .title("Example image")
+ *                 .byline("Unknown person, c. 1980")
+ *                 .webUri(Uri.parse("http://example.com/imagedetails.html"))
+ *                 .build());
+ *     }
+ * }
+ * </pre>
+ *
+ * <h3>Additional notes</h3>
+ *
+ * <p> Providers can also expose additional user-facing commands (such as 'Share artwork') by returning
+ * one or more {@link UserCommand commands} from {@link #getCommands(Artwork)}. To handle
+ * commands, override the {@link #onCommand(Artwork, int)} callback method.
+ *
+ * <p> Providers can provide a dynamic description of the current configuration (e.g.
+ * 'Popular photos tagged "landscape"'), by overriding {@link #getDescription()}. By default,
+ * the <code>android:description</code> element of the provider
+ * element in the manifest will be used.
+ *
+ * <p> All artwork should support opening an Activity to view more details about the artwork.
+ * You can provider your own functionality by overriding {@link #openArtworkInfo(Artwork)}.
+ *
+ * <p> If custom behavior is needed to retrieve the artwork's binary data (for example,
+ * authentication with a remote server), this behavior can be added to
+ * {@link #openFile(Artwork)}. If you already have binary data available locally for your
+ * artwork, you can also write it directly via {@link ContentResolver#openOutputStream(Uri)}.
  */
 @RequiresApi(api = Build.VERSION_CODES.KITKAT)
 public abstract class MuzeiArtProvider extends ContentProvider {
@@ -88,6 +203,14 @@ public abstract class MuzeiArtProvider extends ContentProvider {
      */
     public static final String ACTION_MUZEI_ART_PROVIDER
             = "com.google.android.apps.muzei.api.MuzeiArtProvider";
+
+    /**
+     * Boolean extra that will be set to true when Muzei starts provider settings activities.
+     * Check for this extra in your settings activity if you need to adjust your UI depending on
+     * whether or not the user came from Muzei's settings screen.
+     */
+    public static final String EXTRA_FROM_MUZEI_SETTINGS
+            = "com.google.android.apps.muzei.api.extra.FROM_MUZEI_SETTINGS";
 
     /**
      * Retrieve the content URI for the given {@link MuzeiArtProvider}, allowing you to build
@@ -392,7 +515,7 @@ public abstract class MuzeiArtProvider extends ContentProvider {
 
     @CallSuper
     @Override
-    public boolean onCreate() {
+    public final boolean onCreate() {
         authority = getContentUri().getAuthority();
         String databaseName = authority.substring(authority.lastIndexOf('.') + 1);
         databaseHelper = new DatabaseHelper(getContext(), databaseName);
@@ -401,7 +524,7 @@ public abstract class MuzeiArtProvider extends ContentProvider {
 
     @Nullable
     @Override
-    public Cursor query(@NonNull final Uri uri, @Nullable final String[] projection,
+    public final Cursor query(@NonNull final Uri uri, @Nullable final String[] projection,
                         @Nullable final String selection, @Nullable final String[] selectionArgs,
                         @Nullable final String sortOrder) {
         ContentResolver contentResolver = getContext() != null ? getContext().getContentResolver() : null;
@@ -428,7 +551,7 @@ public abstract class MuzeiArtProvider extends ContentProvider {
 
     @Nullable
     @Override
-    public String getType(@NonNull final Uri uri) {
+    public final String getType(@NonNull final Uri uri) {
         if (uri.equals(contentUri)) {
             return "vnd.android.cursor.dir/vnd." + authority + "." + TABLE_NAME;
         } else {
@@ -438,7 +561,7 @@ public abstract class MuzeiArtProvider extends ContentProvider {
 
     @Nullable
     @Override
-    public Uri insert(@NonNull final Uri uri, @Nullable ContentValues values) {
+    public final Uri insert(@NonNull final Uri uri, @Nullable ContentValues values) {
         Context context = getContext();
         if (context == null) {
             return null;
@@ -496,7 +619,7 @@ public abstract class MuzeiArtProvider extends ContentProvider {
     }
 
     @Override
-    public int delete(@NonNull final Uri uri,
+    public final int delete(@NonNull final Uri uri,
                       @Nullable final String selection, @Nullable final String[] selectionArgs) {
         final SQLiteDatabase db = databaseHelper.getWritableDatabase();
         int count;
@@ -530,7 +653,7 @@ public abstract class MuzeiArtProvider extends ContentProvider {
     }
 
     @Override
-    public int update(@NonNull final Uri uri, @Nullable final ContentValues values,
+    public final int update(@NonNull final Uri uri, @Nullable final ContentValues values,
                       @Nullable final String selection, @Nullable final String[] selectionArgs) {
         if (values == null) {
             return 0;
@@ -561,24 +684,21 @@ public abstract class MuzeiArtProvider extends ContentProvider {
 
     @Nullable
     @Override
-    public ParcelFileDescriptor openFile(@NonNull final Uri uri, @NonNull final String mode)
+    public final ParcelFileDescriptor openFile(@NonNull final Uri uri, @NonNull final String mode)
             throws FileNotFoundException {
-        File file;
-        Uri persistentUri;
+        Artwork artwork;
         try (Cursor data = query(uri,
-                new String[] {ProviderContract.Artwork.DATA, ProviderContract.Artwork.PERSISTENT_URI},
-                null, null, null)) {
+                null, null, null, null)) {
             if (data == null || !data.moveToFirst()) {
                 throw new FileNotFoundException("Could not get persistent uri for " + uri);
             }
-            file = new File(data.getString(0));
-            persistentUri = Uri.parse(data.getString(1));
+            artwork = Artwork.fromCursor(data);
         }
-        if (!file.exists() && mode.equals("r")) {
+        if (!artwork.getData().exists() && mode.equals("r")) {
             // Download the image from the persistent URI for read-only operations
             // rather than throw a FileNotFoundException
-            try (InputStream in = openFromPersistentUri(persistentUri);
-                FileOutputStream out = new FileOutputStream(file)) {
+            try (InputStream in = openFile(artwork);
+                 FileOutputStream out = new FileOutputStream(artwork.getData())) {
                 byte[] buffer = new byte[1024];
                 int bytesRead;
                 while ((bytesRead = in.read(buffer)) > 0) {
@@ -586,20 +706,22 @@ public abstract class MuzeiArtProvider extends ContentProvider {
                 }
                 out.flush();
             } catch (IOException|SecurityException e) {
-                Log.e(TAG, "Unable to read persistent Uri " + persistentUri + " for " + uri, e);
+                Log.e(TAG, "Unable to open artwork " + artwork + " for " + uri, e);
                 if (e instanceof SecurityException) {
                     delete(uri, null, null);
                 }
-                throw new FileNotFoundException("Could not download artwork from persistent Uri " + persistentUri
+                throw new FileNotFoundException("Could not download artwork " + artwork
                         + " for " + uri);
             }
         }
-        return ParcelFileDescriptor.open(file, ParcelFileDescriptor.parseMode(mode));
+        return ParcelFileDescriptor.open(artwork.getData(), ParcelFileDescriptor.parseMode(mode));
     }
 
     /**
-     * Open the persistent uri associated with artwork that has not yet been cached. The default
-     * implementation supports URI schemes in the following formats:
+     * Provide an InputStream to the binary data associated with artwork that has not yet been cached.
+     * The default implementation retrieves the image from the
+     * {@link Artwork#getPersistentUri() persistent URI} and supports URI schemes in the following
+     * formats:
      *
      * <ul>
      * <li><code>content://...</code>.</li>
@@ -609,19 +731,26 @@ public abstract class MuzeiArtProvider extends ContentProvider {
      * <li><code>http://...</code> or <code>https://...</code>.</li>
      * </ul>
      *
-     * Throw a {@link SecurityException} if there is a permanent error that causes the persistent URI to be
+     * Throw a {@link SecurityException} if there is a permanent error that causes the artwork to be
      * no longer accessible.
      *
-     * @param persistentUri The uri to open
+     * @param artwork The Artwork to open
      * @return A valid {@link InputStream} for the artwork's image
      * @throws IOException if an error occurs while opening the image. The request will be retried automatically.
      */
     @NonNull
-    protected InputStream openFromPersistentUri(@NonNull Uri persistentUri)
+    protected InputStream openFile(@NonNull Artwork artwork)
             throws IOException {
         Context context = getContext();
         if (context == null) {
             throw new IOException();
+        }
+        Uri persistentUri = artwork.getPersistentUri();
+        if (persistentUri == null) {
+            throw new IllegalStateException("Got null persistent URI for " + artwork + ". +" +
+                    "The default implementation of openFile() requires a persistent URI. " +
+                    "You must override this method or write the binary data directly " +
+                    "to the artwork's data file.");
         }
         String scheme = persistentUri.getScheme();
         if (scheme == null) {

@@ -23,7 +23,8 @@
             android:authorities="com.google.android.apps.muzei.featuredart"
             android:label="@string/featuredart_source_title"
             android:description="@string/featuredart_source_description"
-            android:icon="@drawable/featuredart_ic_source">
+            android:icon="@drawable/featuredart_ic_source"
+            android:permission="com.google.android.apps.muzei.api.ACCESS_PROVIDER">
             <intent-filter>
                 <action android:name="com.google.android.apps.muzei.api.MuzeiArtProvider" />
             </intent-filter>
