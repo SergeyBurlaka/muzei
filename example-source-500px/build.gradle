@@ -22,6 +22,9 @@ dependencies {
     implementation "com.android.support:support-compat:$rootProject.ext.supportLibraryVersion"
     //implementation "com.google.android.apps.muzei:muzei-api:+"
     implementation project(':api')
+    implementation ("com.firebase:firebase-jobdispatcher:$rootProject.ext.jobDispatcherVersion") {
+        exclude module: 'support-v4'
+    }
 }
 
 android {

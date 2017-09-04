@@ -1,14 +1,30 @@
+/*
+ * Copyright 2017 Google Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.google.android.apps.muzei.featuredart;
 
-import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.preference.PreferenceManager;
-import android.support.annotation.NonNull;
-import android.support.v4.app.JobIntentService;
 import android.text.TextUtils;
 import android.util.Log;
 
+import com.firebase.jobdispatcher.JobParameters;
+import com.firebase.jobdispatcher.JobService;
+import com.firebase.jobdispatcher.SimpleJobService;
 import com.google.android.apps.muzei.api.provider.Artwork;
 import com.google.android.apps.muzei.api.provider.ProviderContract;
 
@@ -30,7 +46,7 @@ import okhttp3.Request;
 /**
  * Job that updates the FeaturedArtProvider with new artwork
  */
-public class FeaturedArtJobIntentService extends JobIntentService {
+public class FeaturedArtJobService extends SimpleJobService {
     private static final String TAG = "FeaturedArtJob";
 
     public static final String PREF_NEXT_UPDATE_MILLIS = "next_update_millis";
@@ -58,12 +74,12 @@ public class FeaturedArtJobIntentService extends JobIntentService {
     }
 
     @Override
-    protected void onHandleWork(@NonNull final Intent intent) {
+    public int onRunJob(final JobParameters job) {
         JSONObject jsonObject;
         try {
             jsonObject = fetchJsonObject(QUERY_URL);
             if (jsonObject == null) {
-                return;
+                return JobService.RESULT_FAIL_RETRY;
             }
             String token = jsonObject.optString(KEY_TOKEN);
             Artwork.Builder builder = new Artwork.Builder()
@@ -84,7 +100,7 @@ public class FeaturedArtJobIntentService extends JobIntentService {
             if (!TextUtils.isEmpty(detailsUri)) {
                 builder.webUri(Uri.parse(detailsUri));
             }
-            boolean initialLoad = intent.getBooleanExtra(KEY_INITIAL_LOAD, false);
+            boolean initialLoad = job.getExtras().getBoolean(KEY_INITIAL_LOAD, false);
             if (initialLoad) {
                 // Keep the initial artwork until we've loaded a second piece of real artwork
                 ProviderContract.Artwork.addArtwork(this, FeaturedArtProvider.class, builder.build());
@@ -94,7 +110,7 @@ public class FeaturedArtJobIntentService extends JobIntentService {
             }
         } catch (JSONException | IOException e) {
             Log.e(TAG, "Error reading JSON", e);
-            return;
+            return JobService.RESULT_FAIL_RETRY;
         }
 
         Date nextTime = null;
@@ -122,6 +138,7 @@ public class FeaturedArtJobIntentService extends JobIntentService {
                 : System.currentTimeMillis() + 12 * 60 * 60 * 1000; // No next time, default to checking in 12 hours
         SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(this);
         sp.edit().putLong(PREF_NEXT_UPDATE_MILLIS, nextUpdateMillis).apply();
+        return JobService.RESULT_SUCCESS;
     }
 
     private JSONObject fetchJsonObject(final String url) throws IOException, JSONException {

@@ -52,6 +52,14 @@
             </intent-filter>
         </provider>
 
+        <service
+            android:name="com.google.android.apps.muzei.gallery.GalleryJobService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.firebase.jobdispatcher.ACTION_EXECUTE" />
+            </intent-filter>
+        </service>
+
         <activity android:name="com.google.android.apps.muzei.gallery.GallerySetupActivity"
                   android:label="@string/gallery_title"
                   android:theme="@android:style/Theme.Translucent.NoTitleBar"

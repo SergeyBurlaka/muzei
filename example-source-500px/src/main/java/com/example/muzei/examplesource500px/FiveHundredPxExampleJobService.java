@@ -16,12 +16,12 @@
 
 package com.example.muzei.examplesource500px;
 
-import android.content.Intent;
 import android.net.Uri;
-import android.support.annotation.NonNull;
-import android.support.v4.app.JobIntentService;
 import android.util.Log;
 
+import com.firebase.jobdispatcher.JobParameters;
+import com.firebase.jobdispatcher.JobService;
+import com.firebase.jobdispatcher.SimpleJobService;
 import com.google.android.apps.muzei.api.provider.Artwork;
 import com.google.android.apps.muzei.api.provider.ProviderContract;
 
@@ -38,11 +38,11 @@ import retrofit2.converter.gson.GsonConverterFactory;
 import static com.example.muzei.examplesource500px.FiveHundredPxService.Photo;
 import static com.example.muzei.examplesource500px.FiveHundredPxService.PhotosResponse;
 
-public class FiveHundredPxExampleArtJobIntentService extends JobIntentService {
+public class FiveHundredPxExampleJobService extends SimpleJobService {
     private static final String TAG = "500pxExample";
 
     @Override
-    protected void onHandleWork(@NonNull final Intent intent) {
+    public int onRunJob(final JobParameters job) {
         OkHttpClient okHttpClient = new OkHttpClient.Builder()
                 .addInterceptor(new Interceptor() {
                     @Override
@@ -68,16 +68,16 @@ public class FiveHundredPxExampleArtJobIntentService extends JobIntentService {
             response = service.getPopularPhotos().execute().body();
         } catch (IOException e) {
             Log.w(TAG, "Error reading 500px response", e);
-            return;
+            return JobService.RESULT_FAIL_RETRY;
         }
 
         if (response == null || response.photos == null) {
-            return;
+            return JobService.RESULT_FAIL_RETRY;
         }
 
         if (response.photos.size() == 0) {
             Log.w(TAG, "No photos returned from API.");
-            return;
+            return JobService.RESULT_FAIL_NORETRY;
         }
 
         for (Photo photo : response.photos) {
@@ -90,6 +90,6 @@ public class FiveHundredPxExampleArtJobIntentService extends JobIntentService {
                             .webUri(Uri.parse("http://500px.com/photo/" + photo.id))
                             .build());
         }
+        return JobService.RESULT_SUCCESS;
     }
 }
-

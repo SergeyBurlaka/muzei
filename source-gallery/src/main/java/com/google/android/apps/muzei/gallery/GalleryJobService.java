@@ -18,7 +18,6 @@ package com.google.android.apps.muzei.gallery;
 
 import android.annotation.SuppressLint;
 import android.content.ContentUris;
-import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.location.Address;
@@ -30,12 +29,14 @@ import android.provider.MediaStore;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.media.ExifInterface;
-import android.support.v4.app.JobIntentService;
 import android.support.v4.content.ContextCompat;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.util.Log;
 
+import com.firebase.jobdispatcher.JobParameters;
+import com.firebase.jobdispatcher.JobService;
+import com.firebase.jobdispatcher.SimpleJobService;
 import com.google.android.apps.muzei.api.provider.Artwork;
 import com.google.android.apps.muzei.api.provider.ProviderContract;
 
@@ -49,7 +50,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 
-public class GalleryArtJobIntentService extends JobIntentService {
+public class GalleryJobService extends SimpleJobService {
     private static final String TAG = "GalleryArtJob";
 
     private static final Random sRandom = new Random();
@@ -71,7 +72,7 @@ public class GalleryArtJobIntentService extends JobIntentService {
     }
 
     @Override
-    protected void onHandleWork(@NonNull final Intent intent) {
+    public int onRunJob(final JobParameters job) {
         List<ChosenPhoto> chosenPhotos = GalleryDatabase.getInstance(this).chosenPhotoDao()
                 .getChosenPhotosBlocking();
         int numChosenUris = (chosenPhotos != null) ? chosenPhotos.size() : 0;
@@ -96,7 +97,7 @@ public class GalleryArtJobIntentService extends JobIntentService {
             int numImages = allImages.size();
             if (numImages == 0) {
                 Log.e(TAG, "No photos in the selected directories.");
-                return;
+                return JobService.RESULT_FAIL_NORETRY;
             }
             while (true) {
                 imageUri = allImages.get(sRandom.nextInt(numImages));
@@ -109,7 +110,7 @@ public class GalleryArtJobIntentService extends JobIntentService {
                     android.Manifest.permission.READ_EXTERNAL_STORAGE)
                     != PackageManager.PERMISSION_GRANTED) {
                 Log.w(TAG, "Missing read external storage permission.");
-                return;
+                return JobService.RESULT_FAIL_NORETRY;
             }
             Cursor cursor = getContentResolver().query(
                     MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
@@ -118,13 +119,13 @@ public class GalleryArtJobIntentService extends JobIntentService {
                     null, null);
             if (cursor == null) {
                 Log.w(TAG, "Empty cursor.");
-                return;
+                return JobService.RESULT_FAIL_NORETRY;
             }
 
             int count = cursor.getCount();
             if (count == 0) {
                 Log.e(TAG, "No photos in the gallery.");
-                return;
+                return JobService.RESULT_FAIL_NORETRY;
             }
 
             while (true) {
@@ -167,6 +168,7 @@ public class GalleryArtJobIntentService extends JobIntentService {
                         .token(token)
                         .persistentUri(imageUri)
                         .build());
+        return JobService.RESULT_SUCCESS;
     }
 
     @Nullable

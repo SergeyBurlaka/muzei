@@ -20,6 +20,9 @@ dependencies {
     implementation project(':api')
     implementation "com.squareup.okhttp3:okhttp:$rootProject.ext.okhttpVersion"
     implementation "com.android.support:customtabs:$rootProject.ext.supportLibraryVersion"
+    implementation ("com.firebase:firebase-jobdispatcher:$rootProject.ext.jobDispatcherVersion") {
+        exclude module: 'support-v4'
+    }
 }
 
 android {

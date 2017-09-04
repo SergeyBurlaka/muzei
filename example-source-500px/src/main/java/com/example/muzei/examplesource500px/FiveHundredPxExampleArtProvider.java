@@ -16,19 +16,19 @@
 
 package com.example.muzei.examplesource500px;
 
-import android.content.Intent;
-import android.support.v4.app.JobIntentService;
-
+import com.firebase.jobdispatcher.Constraint;
+import com.firebase.jobdispatcher.FirebaseJobDispatcher;
+import com.firebase.jobdispatcher.GooglePlayDriver;
 import com.google.android.apps.muzei.api.provider.MuzeiArtProvider;
 
 public class FiveHundredPxExampleArtProvider extends MuzeiArtProvider {
     @Override
     protected void onLoadRequested(final boolean initial) {
-        if (getContext() == null) {
-            return;
-        }
-        JobIntentService.enqueueWork(getContext(), FiveHundredPxExampleArtJobIntentService.class,
-                0, new Intent());
+        FirebaseJobDispatcher dispatcher = new FirebaseJobDispatcher(new GooglePlayDriver(getContext()));
+        dispatcher.mustSchedule(dispatcher.newJobBuilder()
+                .setService(FiveHundredPxExampleJobService.class)
+                .setTag("500px")
+                .addConstraint(Constraint.ON_ANY_NETWORK)
+                .build());
     }
 }
-

@@ -20,12 +20,15 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
+import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.customtabs.CustomTabsIntent;
-import android.support.v4.app.JobIntentService;
 import android.support.v4.content.ContextCompat;
 
+import com.firebase.jobdispatcher.Constraint;
+import com.firebase.jobdispatcher.FirebaseJobDispatcher;
+import com.firebase.jobdispatcher.GooglePlayDriver;
 import com.google.android.apps.muzei.api.UserCommand;
 import com.google.android.apps.muzei.api.provider.Artwork;
 import com.google.android.apps.muzei.api.provider.MuzeiArtProvider;
@@ -56,11 +59,18 @@ public class FeaturedArtProvider extends MuzeiArtProvider {
                     .build());
         }
         SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(context);
-        long nextUpdateMillis = sp.getLong(FeaturedArtJobIntentService.PREF_NEXT_UPDATE_MILLIS, 0);
+        long nextUpdateMillis = sp.getLong(FeaturedArtJobService.PREF_NEXT_UPDATE_MILLIS, 0);
         if (nextUpdateMillis <= System.currentTimeMillis()) {
             // Load the next artwork
-            JobIntentService.enqueueWork(context, FeaturedArtJobIntentService.class, 0,
-                    new Intent().putExtra(FeaturedArtJobIntentService.KEY_INITIAL_LOAD, initial));
+            FirebaseJobDispatcher dispatcher = new FirebaseJobDispatcher(new GooglePlayDriver(context));
+            Bundle bundle = new Bundle();
+            bundle.putBoolean(FeaturedArtJobService.KEY_INITIAL_LOAD, initial);
+            dispatcher.mustSchedule(dispatcher.newJobBuilder()
+                    .setService(FeaturedArtJobService.class)
+                    .setTag("featuredart")
+                    .setExtras(bundle)
+                    .addConstraint(Constraint.ON_ANY_NETWORK)
+                    .build());
         }
     }
 

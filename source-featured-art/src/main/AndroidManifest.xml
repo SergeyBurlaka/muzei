@@ -40,5 +40,13 @@
                 <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
             </intent-filter>
         </provider>
+
+        <service
+            android:name="com.google.android.apps.muzei.featuredart.FeaturedArtJobService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.firebase.jobdispatcher.ACTION_EXECUTE" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>
