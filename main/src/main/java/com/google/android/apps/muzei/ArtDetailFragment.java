@@ -29,7 +29,6 @@ import android.support.v4.app.Fragment;
 import android.support.v4.content.res.ResourcesCompat;
 import android.support.v7.widget.TooltipCompat;
 import android.text.TextUtils;
-import android.util.Log;
 import android.util.SparseIntArray;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -39,7 +38,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.PopupMenu;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.google.android.apps.muzei.api.MuzeiContract;
 import com.google.android.apps.muzei.api.UserCommand;
@@ -68,8 +66,6 @@ import org.greenrobot.eventbus.Subscribe;
 import java.util.List;
 
 public class ArtDetailFragment extends Fragment {
-    private static final String TAG = "ArtDetailFragment";
-
     private int mCurrentViewportId = 0;
     private float mWallpaperAspectRatio;
     private float mArtworkAspectRatio;
@@ -92,25 +88,15 @@ public class ArtDetailFragment extends Fragment {
                         mNextButton.setVisibility(mSupportsNextArtwork && !mArtworkLoading ? View.VISIBLE : View.GONE);
                     }
                 });
-                provider.getCommands(new Provider.CommandsCallback() {
-                    @Override
-                    public void onCallback(@NonNull final List<UserCommand> commands) {
-                        int numSourceActions = Math.min(SOURCE_ACTION_IDS.length,
-                                commands.size());
-                        for (int i = 0; i < numSourceActions; i++) {
-                            UserCommand action = commands.get(i);
-                            mOverflowSourceActionMap.put(SOURCE_ACTION_IDS[i], action.getId());
-                            mOverflowMenu.getMenu().add(0, SOURCE_ACTION_IDS[i], 0, action.getTitle());
-                        }
-                    }
-                });
             }
         }
     };
 
+    private Artwork mCurrentArtwork;
     private Observer<Artwork> mArtworkObserver = new Observer<Artwork>() {
         @Override
         public void onChanged(@Nullable final Artwork currentArtwork) {
+            mCurrentArtwork = currentArtwork;
             if (currentArtwork == null) {
                 return;
             }
@@ -135,30 +121,18 @@ public class ArtDetailFragment extends Fragment {
                 mAttributionView.setVisibility(View.GONE);
             }
 
-            final Intent viewIntent = currentArtwork.viewIntent;
-            mMetadataView.setEnabled(viewIntent != null);
-            if (viewIntent != null) {
-                mMetadataView.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View view) {
-                        viewIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                        // Make sure any data URIs granted to Muzei are passed onto the
-                        // started Activity
-                        viewIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                        try {
-                            startActivity(viewIntent);
-                        } catch (RuntimeException e) {
-                            // Catch ActivityNotFoundException, SecurityException,
-                            // and FileUriExposedException
-                            Toast.makeText(getContext(), R.string.error_view_details,
-                                    Toast.LENGTH_SHORT).show();
-                            Log.e(TAG, "Error viewing artwork details.", e);
-                        }
+            currentArtwork.getCommands(getContext(), new Artwork.CommandsCallback() {
+                @Override
+                public void onCallback(@NonNull final List<UserCommand> commands) {
+                    int numSourceActions = Math.min(SOURCE_ACTION_IDS.length,
+                            commands.size());
+                    for (int i = 0; i < numSourceActions; i++) {
+                        UserCommand action = commands.get(i);
+                        mOverflowSourceActionMap.put(SOURCE_ACTION_IDS[i], action.getId());
+                        mOverflowMenu.getMenu().add(0, SOURCE_ACTION_IDS[i], 0, action.getTitle());
                     }
-                });
-            } else {
-                mMetadataView.setOnClickListener(null);
-            }
+                }
+            });
         }
     };
 
@@ -224,6 +198,14 @@ public class ArtDetailFragment extends Fragment {
                 0xaa000000, 8, Gravity.BOTTOM));
 
         mMetadataView = view.findViewById(R.id.metadata);
+        mMetadataView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (mCurrentArtwork != null) {
+                    mCurrentArtwork.openArtworkInfo(getContext());
+                }
+            }
+        });
 
         final float metadataSlideDistance = TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_DIP, 8, getResources().getDisplayMetrics());
@@ -271,7 +253,7 @@ public class ArtDetailFragment extends Fragment {
                 }
                 int id = mOverflowSourceActionMap.get(menuItem.getItemId());
                 if (id > 0) {
-                    mCurrentProvider.sendAction(id);
+                    mCurrentArtwork.sendAction(getContext(), id);
                     return true;
                 }
 

@@ -105,6 +105,14 @@
             </intent-filter>
         </service>
 
+        <activity android:name="com.google.android.apps.muzei.shortcuts.ArtworkInfoRedirectActivity"
+                  android:label="@string/action_artwork_info"
+                  android:icon="@drawable/ic_notif_info"
+                  android:exported="true"
+                  android:excludeFromRecents="true"
+                  android:taskAffinity=""
+                  android:theme="@android:style/Theme.Translucent.NoTitleBar"/>
+
         <!-- AppWidget -->
 
         <receiver android:name="com.google.android.apps.muzei.widget.MuzeiAppWidgetProvider">

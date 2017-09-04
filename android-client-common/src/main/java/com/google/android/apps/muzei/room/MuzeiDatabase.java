@@ -241,7 +241,8 @@ public abstract class MuzeiDatabase extends RoomDatabase {
                     + "componentName TEXT PRIMARY KEY NOT NULL);");
 
             // Handle Artwork
-            database.execSQL("CREATE TABLE artwork2 ("
+            database.execSQL("DROP TABLE artwork");
+            database.execSQL("CREATE TABLE artwork ("
                     + "_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,"
                     + "sourceComponentName TEXT,"
                     + "imageUri TEXT,"
@@ -250,12 +251,7 @@ public abstract class MuzeiDatabase extends RoomDatabase {
                     + "attribution TEXT,"
                     + "token TEXT,"
                     + "metaFont TEXT NOT NULL,"
-                    + "date_added INTEGER NOT NULL,"
-                    + "viewIntent TEXT);");
-            database.execSQL("INSERT INTO artwork2 "
-                    + "SELECT * FROM artwork");
-            database.execSQL("DROP TABLE artwork");
-            database.execSQL("ALTER TABLE artwork2 RENAME TO artwork");
+                    + "date_added INTEGER NOT NULL)");
         }
     };
 }

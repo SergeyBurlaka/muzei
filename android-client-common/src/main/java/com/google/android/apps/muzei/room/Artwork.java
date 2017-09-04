@@ -16,33 +16,65 @@
 
 package com.google.android.apps.muzei.room;
 
+import android.annotation.SuppressLint;
 import android.arch.persistence.room.ColumnInfo;
 import android.arch.persistence.room.Entity;
-import android.arch.persistence.room.ForeignKey;
 import android.arch.persistence.room.Index;
 import android.arch.persistence.room.PrimaryKey;
 import android.arch.persistence.room.TypeConverters;
 import android.content.ComponentName;
+import android.content.ContentProviderClient;
 import android.content.ContentResolver;
 import android.content.ContentUris;
-import android.content.Intent;
+import android.content.Context;
 import android.net.Uri;
+import android.os.AsyncTask;
+import android.os.Bundle;
+import android.os.RemoteException;
 import android.provider.BaseColumns;
 import android.support.annotation.NonNull;
+import android.util.Log;
+import android.widget.Toast;
 
 import com.google.android.apps.muzei.api.MuzeiContract;
+import com.google.android.apps.muzei.api.UserCommand;
+import com.google.android.apps.muzei.api.provider.MuzeiArtProvider;
 import com.google.android.apps.muzei.room.converter.ComponentNameTypeConverter;
 import com.google.android.apps.muzei.room.converter.DateTypeConverter;
-import com.google.android.apps.muzei.room.converter.IntentTypeConverter;
 import com.google.android.apps.muzei.room.converter.UriTypeConverter;
+import com.google.android.apps.muzei.room.converter.UserCommandTypeConverter;
 
+import net.nurik.roman.muzei.androidclientcommon.R;
+
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+
+import static com.google.android.apps.muzei.api.internal.ProtocolConstants.KEY_COMMAND;
+import static com.google.android.apps.muzei.api.internal.ProtocolConstants.KEY_COMMANDS;
+import static com.google.android.apps.muzei.api.internal.ProtocolConstants.KEY_OPEN_ARTWORK_INFO_SUCCESS;
+import static com.google.android.apps.muzei.api.internal.ProtocolConstants.METHOD_GET_COMMANDS;
+import static com.google.android.apps.muzei.api.internal.ProtocolConstants.METHOD_OPEN_ARTWORK_INFO;
+import static com.google.android.apps.muzei.api.internal.ProtocolConstants.METHOD_TRIGGER_COMMAND;
 
 /**
  * Artwork's representation in Room
  */
 @Entity(indices = @Index(value = "sourceComponentName"))
 public class Artwork {
+    private static final String TAG = "Artwork";
+
+    private static Executor sExecutor;
+
+    private static Executor getExecutor() {
+        if (sExecutor == null) {
+            sExecutor = Executors.newCachedThreadPool();
+        }
+        return sExecutor;
+    }
+
     @PrimaryKey(autoGenerate = true)
     @ColumnInfo(name = BaseColumns._ID)
     public long id;
@@ -70,9 +102,6 @@ public class Artwork {
     @NonNull
     public Date dateAdded = new Date();
 
-    @TypeConverters(IntentTypeConverter.class)
-    public Intent viewIntent;
-
     @NonNull
     public Uri getContentUri() {
         return getContentUri(id);
@@ -81,7 +110,104 @@ public class Artwork {
     public static Uri getContentUri(long id) {
         return ContentUris.appendId(new Uri.Builder()
                 .scheme(ContentResolver.SCHEME_CONTENT)
-                .authority(MuzeiContract.AUTHORITY)
-                .appendPath("artwork"), id).build();
+                .authority(MuzeiContract.AUTHORITY), id).build();
+    }
+
+    private ContentProviderClient getContentProviderClient(Context context) {
+        return context.getContentResolver().acquireUnstableContentProviderClient(
+                MuzeiArtProvider.getContentUri(context, sourceComponentName));
+    }
+
+    @SuppressLint("StaticFieldLeak")
+    public void openArtworkInfo(final Context context) {
+        new AsyncTask<Void, Void, Boolean>() {
+            @Override
+            protected Boolean doInBackground(final Void... voids) {
+                try (ContentProviderClient client = getContentProviderClient(context)) {
+                    if (client == null) {
+                        return false;
+                    }
+                    try {
+                        Bundle result = client.call(METHOD_OPEN_ARTWORK_INFO,
+                                imageUri.toString(),
+                                null);
+                        return result != null && result.getBoolean(KEY_OPEN_ARTWORK_INFO_SUCCESS);
+                    } catch (RemoteException e) {
+                        Log.i(TAG, "Provider " + sourceComponentName + " crashed while opening artwork info", e);
+                        return false;
+                    }
+                }
+            }
+
+            @Override
+            protected void onPostExecute(final Boolean success) {
+                if (!success) {
+                    Toast.makeText(context, R.string.error_view_details,
+                            Toast.LENGTH_SHORT).show();
+                }
+            }
+        }.executeOnExecutor(getExecutor());
+    }
+
+    public interface CommandsCallback {
+        void onCallback(@NonNull List<UserCommand> commands);
+    }
+
+    @SuppressLint("StaticFieldLeak")
+    public void getCommands(final Context context, final Artwork.CommandsCallback callback) {
+        new AsyncTask<Void, Void, List<UserCommand>>() {
+            @Override
+            protected List<UserCommand> doInBackground(final Void... voids) {
+                return getCommandsBlocking(context);
+            }
+
+            @Override
+            protected void onPostExecute(final List<UserCommand> commands) {
+                callback.onCallback(commands);
+            }
+        }.executeOnExecutor(getExecutor());
+    }
+
+    public List<UserCommand> getCommandsBlocking(Context context) {
+        try (ContentProviderClient client = getContentProviderClient(context)) {
+            ArrayList<UserCommand> commands = new ArrayList<>();
+            if (client == null) {
+                return commands;
+            }
+            try {
+                Bundle result = client.call(METHOD_GET_COMMANDS,
+                        imageUri.toString(),
+                        null);
+                String commandsString = result != null ? result.getString(KEY_COMMANDS, null) : null;
+                return UserCommandTypeConverter.fromString(commandsString);
+            } catch (RemoteException e) {
+                Log.i(TAG, "Provider " + sourceComponentName + " crashed while retrieving commands", e);
+                return commands;
+            }
+        }
+    }
+
+    @SuppressLint("StaticFieldLeak")
+    public void sendAction(final Context context, final int id) {
+        new AsyncTask<Void, Void, Void>() {
+            @Override
+            protected Void doInBackground(final Void... voids) {
+                try (ContentProviderClient client = getContentProviderClient(context)) {
+                    if (client == null) {
+                        return null;
+                    }
+                    try {
+                        Bundle extras = new Bundle();
+                        extras.putInt(KEY_COMMAND, id);
+                        client.call(METHOD_TRIGGER_COMMAND,
+                                imageUri.toString(),
+                                extras);
+                    } catch (RemoteException e) {
+                        Log.i(TAG, "Provider " + sourceComponentName + " crashed while sending action", e);
+                    }
+                    return null;
+                }
+            }
+        }.executeOnExecutor(getExecutor());
     }
 }

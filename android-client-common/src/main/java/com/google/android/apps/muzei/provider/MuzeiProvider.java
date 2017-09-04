@@ -261,18 +261,19 @@ public class MuzeiProvider extends ContentProvider {
             return null;
         }
         MatrixCursor c = new MatrixCursor(projection);
-        Provider provider = MuzeiDatabase.getInstance(context).providerDao().getCurrentProviderBlocking(context);
+        Artwork artwork = MuzeiDatabase.getInstance(context).artworkDao().getCurrentArtworkBlocking();
+        Provider provider = new Provider(context, artwork.sourceComponentName);
 
         MatrixCursor.RowBuilder row = c.newRow();
         row.add(BaseColumns._ID, 1L);
-        row.add(MuzeiContract.Sources.COLUMN_NAME_COMPONENT_NAME, provider.componentName);
+        row.add(MuzeiContract.Sources.COLUMN_NAME_COMPONENT_NAME, artwork.sourceComponentName);
         row.add(MuzeiContract.Sources.COLUMN_NAME_IS_SELECTED, true);
         row.add(MuzeiContract.Sources.COLUMN_NAME_DESCRIPTION, provider.getDescriptionBlocking());
         row.add(MuzeiContract.Sources.COLUMN_NAME_WANTS_NETWORK_AVAILABLE, false);
         row.add(MuzeiContract.Sources.COLUMN_NAME_SUPPORTS_NEXT_ARTWORK_COMMAND,
                 provider.getSupportsNextArtworkBlocking());
         row.add(MuzeiContract.Sources.COLUMN_NAME_COMMANDS,
-                UserCommandTypeConverter.commandsListToString(provider.getCommandsBlocking()));
+                UserCommandTypeConverter.commandsListToString(artwork.getCommandsBlocking(context)));
 
         c.setNotificationUri(context.getContentResolver(), uri);
         return c;

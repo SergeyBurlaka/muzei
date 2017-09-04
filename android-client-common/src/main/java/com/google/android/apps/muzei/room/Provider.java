@@ -36,22 +36,13 @@ import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.Log;
 
-import com.google.android.apps.muzei.api.MuzeiArtSource;
-import com.google.android.apps.muzei.api.UserCommand;
 import com.google.android.apps.muzei.api.provider.MuzeiArtProvider;
-import com.google.android.apps.muzei.room.converter.UserCommandTypeConverter;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
-import static com.google.android.apps.muzei.api.internal.ProtocolConstants.KEY_COMMAND;
-import static com.google.android.apps.muzei.api.internal.ProtocolConstants.KEY_COMMANDS;
 import static com.google.android.apps.muzei.api.internal.ProtocolConstants.KEY_DESCRIPTION;
-import static com.google.android.apps.muzei.api.internal.ProtocolConstants.METHOD_GET_COMMANDS;
 import static com.google.android.apps.muzei.api.internal.ProtocolConstants.METHOD_GET_DESCRIPTION;
-import static com.google.android.apps.muzei.api.internal.ProtocolConstants.METHOD_TRIGGER_COMMAND;
 
 /**
  * Encapsulates the connection and information about a Provider
@@ -253,67 +244,7 @@ public class Provider extends ProviderEntity {
         return false;
     }
 
-    public interface CommandsCallback {
-        void onCallback(@NonNull List<UserCommand> commands);
-    }
-
-    @SuppressLint("StaticFieldLeak")
-    public void getCommands(final CommandsCallback callback) {
-        new AsyncTask<Void, Void, List<UserCommand>>() {
-            @Override
-            protected List<UserCommand> doInBackground(final Void... voids) {
-                return getCommandsBlocking();
-            }
-
-            @Override
-            protected void onPostExecute(final List<UserCommand> commands) {
-                callback.onCallback(commands);
-            }
-        }.executeOnExecutor(mExecutor);
-    }
-
-    public List<UserCommand> getCommandsBlocking() {
-        try (ContentProviderClient client = getContentProviderClient()) {
-            ArrayList<UserCommand> commands = new ArrayList<>();
-            if (client == null) {
-                return commands;
-            }
-            try {
-                Bundle result = client.call(METHOD_GET_COMMANDS, mContentUri.toString(), null);
-                String commandsString =result != null ? result.getString(KEY_COMMANDS, null) : null;
-                return UserCommandTypeConverter.fromString(commandsString);
-            } catch (RemoteException e) {
-                Log.i(TAG, "Provider " + componentName + " crashed while retrieving commands", e);
-                return commands;
-            }
-        }
-    }
-
-    @SuppressLint("StaticFieldLeak")
-    public void sendAction(final int id) {
-        new AsyncTask<Void, Void, Void>() {
-            @Override
-            protected Void doInBackground(final Void... voids) {
-                try (ContentProviderClient client = getContentProviderClient()) {
-                    if (client == null) {
-                        return null;
-                    }
-                    try {
-                        Bundle extras = new Bundle();
-                        extras.putInt(KEY_COMMAND, id);
-                        client.call(METHOD_TRIGGER_COMMAND,
-                                mContentUri.toString(), extras);
-                    } catch (RemoteException e) {
-                        Log.i(TAG, "Provider " + componentName + " crashed while sending action", e);
-                    }
-                    return null;
-                }
-            }
-        }.executeOnExecutor(mExecutor);
-    }
-
     public void nextArtwork() {
         // TODO Actually trigger the next artwork
-        sendAction(MuzeiArtSource.BUILTIN_COMMAND_ID_NEXT_ARTWORK);
     }
 }

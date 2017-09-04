@@ -87,6 +87,9 @@ public class NewWallpaperNotificationReceiver extends BroadcastReceiver {
     private static final String EXTRA_USER_COMMAND
             = "com.google.android.apps.muzei.extra.USER_COMMAND";
 
+    private static final String ACTION_OPEN_ARTWORK_INFO
+            = "com.google.android.apps.muzei.action.NOTIFICATION_OPEN_ARTWORK_INFO";
+
     @Override
     public void onReceive(Context context, Intent intent) {
         if (intent != null) {
@@ -97,6 +100,8 @@ public class NewWallpaperNotificationReceiver extends BroadcastReceiver {
                 Provider.nextArtwork(context);
             } else if (ACTION_USER_COMMAND.equals(action)) {
                 triggerUserCommandFromRemoteInput(context, intent);
+            } else if (ACTION_OPEN_ARTWORK_INFO.equals(action)) {
+                openArtworkInfo(context);
             }
         }
     }
@@ -108,25 +113,38 @@ public class NewWallpaperNotificationReceiver extends BroadcastReceiver {
         }
         final String selectedCommand = remoteInput.getCharSequence(EXTRA_USER_COMMAND).toString();
         final PendingResult pendingResult = goAsync();
-        final LiveData<Provider> providerLiveData = MuzeiDatabase.getInstance(context).providerDao()
-                .getCurrentProvider(context);
-        providerLiveData.observeForever(new Observer<Provider>() {
+        final LiveData<Artwork> artworkLiveData = MuzeiDatabase.getInstance(context).artworkDao()
+                .getCurrentArtwork();
+        artworkLiveData.observeForever(new Observer<Artwork>() {
             @Override
-            public void onChanged(@Nullable final Provider provider) {
-                providerLiveData.removeObserver(this);
-                if (provider != null) {
-                    provider.getCommands(new Provider.CommandsCallback() {
+            public void onChanged(@Nullable final Artwork artwork) {
+                artworkLiveData.removeObserver(this);
+                if (artwork != null) {
+                    artwork.getCommands(context, new Artwork.CommandsCallback() {
                         @Override
                         public void onCallback(@NonNull final List<UserCommand> commands) {
                             for (UserCommand action : commands) {
                                 if (TextUtils.equals(selectedCommand, action.getTitle())) {
-                                    provider.sendAction(action.getId());
+                                    artwork.sendAction(context, action.getId());
                                     break;
                                 }
                                 pendingResult.finish();
                             }
                         }
                     });
+                }
+            }
+        });
+    }
+
+    private void openArtworkInfo(final Context context) {
+        final LiveData<Artwork> artworkLiveData = MuzeiDatabase.getInstance(context).artworkDao().getCurrentArtwork();
+        artworkLiveData.observeForever(new Observer<Artwork>() {
+            @Override
+            public void onChanged(@Nullable final Artwork artwork) {
+                artworkLiveData.removeObserver(this);
+                if (artwork != null) {
+                    artwork.openArtworkInfo(context);
                 }
             }
         });
@@ -317,7 +335,7 @@ public class NewWallpaperNotificationReceiver extends BroadcastReceiver {
                     .extend(new NotificationCompat.Action.WearableExtender().setAvailableOffline(false))
                     .build());
         }
-        List<UserCommand> commands = provider.getCommandsBlocking();
+        List<UserCommand> commands = artwork.getCommandsBlocking(context);
         // Show custom actions as a selectable list on Android Wear devices
         if (!commands.isEmpty()) {
             String[] actions = new String[commands.size()];
@@ -340,31 +358,24 @@ public class NewWallpaperNotificationReceiver extends BroadcastReceiver {
                     .extend(new NotificationCompat.Action.WearableExtender().setAvailableOffline(false))
                     .build());
         }
-        Intent viewIntent = artwork.viewIntent;
-        if (viewIntent != null) {
-            viewIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            try {
-                PendingIntent nextPendingIntent = PendingIntent.getActivity(context, 0,
-                        viewIntent,
-                        PendingIntent.FLAG_UPDATE_CURRENT);
-                nb.addAction(
-                        R.drawable.ic_notif_info,
-                        context.getString(R.string.action_artwork_info),
-                        nextPendingIntent);
-                // Android Wear uses larger action icons so we build a
-                // separate action
-                extender.addAction(new NotificationCompat.Action.Builder(
-                        R.drawable.ic_notif_full_info,
-                        context.getString(R.string.action_artwork_info),
-                        nextPendingIntent)
-                        .extend(new NotificationCompat.Action.WearableExtender()
-                                .setAvailableOffline(false))
-                        .build());
-            } catch (RuntimeException ignored) {
-                // This is actually meant to catch a FileUriExposedException, but you can't
-                // have catch statements for exceptions that don't exist at your minSdkVersion
-            }
-        }
+        //
+        PendingIntent openInfoPendingIntent = PendingIntent.getBroadcast(context, 0,
+                new Intent(context, NewWallpaperNotificationReceiver.class)
+                        .setAction(ACTION_OPEN_ARTWORK_INFO),
+                PendingIntent.FLAG_UPDATE_CURRENT);
+        nb.addAction(
+                R.drawable.ic_notif_info,
+                context.getString(R.string.action_artwork_info),
+                openInfoPendingIntent);
+        // Android Wear uses larger action icons so we build a
+        // separate action
+        extender.addAction(new NotificationCompat.Action.Builder(
+                R.drawable.ic_notif_full_info,
+                context.getString(R.string.action_artwork_info),
+                openInfoPendingIntent)
+                .extend(new NotificationCompat.Action.WearableExtender()
+                        .setAvailableOffline(false))
+                .build());
         nb.extend(extender);
 
         // Hide the image and artwork title for the public version

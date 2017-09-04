@@ -80,10 +80,7 @@ public class ArtworkInfoShortcutController implements LifecycleObserver {
         mArtworkInfoShortcutHandlerThread.quitSafely();
     }
 
-    private void updateShortcut(Artwork artwork) {
-        if (artwork == null) {
-            return;
-        }
+    private void updateShortcut(@Nullable Artwork artwork) {
         ShortcutManager shortcutManager = mContext.getSystemService(ShortcutManager.class);
         List<ShortcutInfo> dynamicShortcuts = shortcutManager.getDynamicShortcuts();
         ShortcutInfo artworkInfoShortcutInfo = null;
@@ -93,7 +90,7 @@ public class ArtworkInfoShortcutController implements LifecycleObserver {
             }
         }
 
-        if (artwork.viewIntent != null) {
+        if (artwork != null) {
             if (artworkInfoShortcutInfo != null && !artworkInfoShortcutInfo.isEnabled()) {
                 // Re-enable a disabled Artwork Info Shortcut
                 shortcutManager.enableShortcuts(
@@ -104,7 +101,7 @@ public class ArtworkInfoShortcutController implements LifecycleObserver {
                     .setIcon(Icon.createWithResource(mContext,
                             R.drawable.ic_shortcut_artwork_info))
                     .setShortLabel(mContext.getString(R.string.action_artwork_info))
-                    .setIntent(artwork.viewIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
+                    .setIntent(new Intent(mContext, ArtworkInfoRedirectActivity.class))
                     .build();
             shortcutManager.addDynamicShortcuts(
                     Collections.singletonList(shortcutInfo));

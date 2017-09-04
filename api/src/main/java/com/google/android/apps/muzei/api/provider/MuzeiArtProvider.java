@@ -203,7 +203,7 @@ public abstract class MuzeiArtProvider extends ContentProvider {
      * @see ProviderContract.Artwork#getLastAddedArtwork(Context, Class)
      */
     @Nullable
-    protected final com.google.android.apps.muzei.api.provider.Artwork getLastAddedArtwork() {
+    protected final Artwork getLastAddedArtwork() {
         try (Cursor data = query(contentUri, null, null, null,
                 ProviderContract.Artwork.DATE_ADDED + " DESC")) {
             return data != null && data.moveToFirst() ? Artwork.fromCursor(data) : null;
