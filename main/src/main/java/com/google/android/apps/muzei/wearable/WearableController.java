@@ -22,6 +22,7 @@ import android.arch.lifecycle.OnLifecycleEvent;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.database.ContentObserver;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
@@ -41,6 +42,7 @@ import com.google.android.gms.common.api.AvailabilityException;
 import com.google.android.gms.tasks.Tasks;
 import com.google.android.gms.wearable.Asset;
 import com.google.android.gms.wearable.DataClient;
+import com.google.android.gms.wearable.DataMap;
 import com.google.android.gms.wearable.PutDataMapRequest;
 import com.google.android.gms.wearable.Wearable;
 
@@ -142,10 +144,15 @@ public class WearableController implements LifecycleObserver {
             Asset asset = Asset.createFromBytes(byteStream.toByteArray());
             PutDataMapRequest dataMapRequest = PutDataMapRequest.create("/artwork");
             Artwork artwork = MuzeiDatabase.getInstance(mContext).artworkDao().getCurrentArtworkBlocking();
-            dataMapRequest.getDataMap().putDataMap("artwork", ArtworkTransfer.toDataMap(artwork));
-            dataMapRequest.getDataMap().putAsset("image", asset);
-            try {
-                Tasks.await(dataClient.putDataItem(dataMapRequest.asPutDataRequest().setUrgent()));
+            try (Cursor data = mContext.getContentResolver().query(artwork.imageUri,
+                    null, null, null, null)) {
+                if (data != null && data.moveToNext()) {
+                    DataMap dataMap = ArtworkTransfer.toDataMap(
+                            com.google.android.apps.muzei.api.provider.Artwork.fromCursor(data));
+                    dataMapRequest.getDataMap().putDataMap("artwork", dataMap);
+                    dataMapRequest.getDataMap().putAsset("image", asset);
+                    Tasks.await(dataClient.putDataItem(dataMapRequest.asPutDataRequest().setUrgent()));
+                }
             } catch (ExecutionException|InterruptedException e) {
                 Log.w(TAG, "Error uploading artwork to Wear", e);
             }

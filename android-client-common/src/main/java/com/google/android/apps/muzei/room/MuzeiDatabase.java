@@ -16,7 +16,6 @@
 
 package com.google.android.apps.muzei.room;
 
-import android.annotation.SuppressLint;
 import android.arch.lifecycle.Observer;
 import android.arch.persistence.db.SupportSQLiteDatabase;
 import android.arch.persistence.room.Database;
@@ -28,14 +27,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.database.sqlite.SQLiteConstraintException;
 import android.support.annotation.NonNull;
-import android.os.AsyncTask;
 import android.support.annotation.Nullable;
 
 import com.google.android.apps.muzei.api.MuzeiContract;
 import com.google.firebase.analytics.FirebaseAnalytics;
 
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
+import java.io.File;
 
 /**
  * Room Database for Muzei
@@ -46,8 +43,6 @@ public abstract class MuzeiDatabase extends RoomDatabase {
     private static final String USER_PROPERTY_SELECTED_PROVIDER_PACKAGE = "selected_provider_pkg";
 
     private static MuzeiDatabase sInstance;
-
-    private Executor mExecutor = Executors.newSingleThreadExecutor();
 
     public abstract SourceDao sourceDao();
 
@@ -61,7 +56,8 @@ public abstract class MuzeiDatabase extends RoomDatabase {
             sInstance = Room.databaseBuilder(applicationContext,
                     MuzeiDatabase.class, "muzei.db")
                     .allowMainThreadQueries()
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
+                            new Migration_4_5(applicationContext))
                     .build();
             sInstance.providerDao().getCurrentProvider(context).observeForever(
                     new Observer<Provider>() {
@@ -78,38 +74,22 @@ public abstract class MuzeiDatabase extends RoomDatabase {
                         }
                     }
             );
+            sInstance.artworkDao().getCurrentArtwork().observeForever(
+                    new Observer<Artwork>() {
+                        @Override
+                        public void onChanged(@Nullable final Artwork artwork) {
+                            if (artwork == null) {
+                                return;
+                            }
+                            applicationContext.getContentResolver()
+                                    .notifyChange(MuzeiContract.Artwork.CONTENT_URI, null);
+                            applicationContext.sendBroadcast(
+                                    new Intent(MuzeiContract.Artwork.ACTION_ARTWORK_CHANGED));
+                        }
+                    }
+            );
         }
         return sInstance;
-    }
-
-    public interface ProviderCallback {
-        void onProviderSelected();
-    }
-
-    public void selectProvider(final ComponentName componentName) {
-        selectProvider(componentName, null);
-    }
-
-    @SuppressLint("StaticFieldLeak")
-    public void selectProvider(final ComponentName componentName, final ProviderCallback callback) {
-        new AsyncTask<Void, Void, Void>() {
-            @Override
-            protected Void doInBackground(final Void... voids) {
-                beginTransaction();
-                providerDao().deleteAll();
-                providerDao().insert(new ProviderEntity(componentName));
-                setTransactionSuccessful();
-                endTransaction();
-                return null;
-            }
-
-            @Override
-            protected void onPostExecute(final Void aVoid) {
-                if (callback != null) {
-                    callback.onProviderSelected();
-                }
-            }
-        }.executeOnExecutor(mExecutor);
     }
 
     private static void sendSelectedSourceAnalytics(Context context, ComponentName selectedSource) {
@@ -233,7 +213,13 @@ public abstract class MuzeiDatabase extends RoomDatabase {
         }
     };
 
-    private static final Migration MIGRATION_4_5 = new Migration(4, 5) {
+    private static class Migration_4_5 extends Migration {
+        private final Context mContext;
+
+        Migration_4_5(Context context) {
+            super(4, 5);
+            mContext = context;
+        }
         @Override
         public void migrate(@NonNull final SupportSQLiteDatabase database) {
             // Handle Provider
@@ -250,8 +236,12 @@ public abstract class MuzeiDatabase extends RoomDatabase {
                     + "byline TEXT,"
                     + "attribution TEXT,"
                     + "token TEXT,"
-                    + "metaFont TEXT NOT NULL,"
-                    + "date_added INTEGER NOT NULL)");
+                    + "metaFont TEXT NOT NULL)");
+
+            // Delete previously cached artwork - this is now by providers
+            File artworkDirectory = new File(mContext.getFilesDir(), "artwork");
+            //noinspection ResultOfMethodCallIgnored
+            artworkDirectory.delete();
         }
-    };
+    }
 }

@@ -265,7 +265,7 @@ public class LegacySourceManager implements LifecycleObserver, Observer<Provider
         } catch (PackageManager.NameNotFoundException|IllegalStateException|SecurityException e) {
             Log.i(TAG, "Selected source " + selectedSource
                     + " is no longer available; switching to default.", e);
-            Toast.makeText(mContext, R.string.source_unavailable, Toast.LENGTH_LONG).show();
+            Toast.makeText(mContext, R.string.legacy_source_unavailable, Toast.LENGTH_LONG).show();
             invalidateSelectedSource(mContext);
         }
     }

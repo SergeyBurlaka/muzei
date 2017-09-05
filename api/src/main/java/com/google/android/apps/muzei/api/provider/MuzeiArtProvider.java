@@ -515,7 +515,7 @@ public abstract class MuzeiArtProvider extends ContentProvider {
 
     @CallSuper
     @Override
-    public final boolean onCreate() {
+    public boolean onCreate() {
         authority = getContentUri().getAuthority();
         String databaseName = authority.substring(authority.lastIndexOf('.') + 1);
         databaseHelper = new DatabaseHelper(getContext(), databaseName);
@@ -549,7 +549,6 @@ public abstract class MuzeiArtProvider extends ContentProvider {
         return c;
     }
 
-    @Nullable
     @Override
     public final String getType(@NonNull final Uri uri) {
         if (uri.equals(contentUri)) {

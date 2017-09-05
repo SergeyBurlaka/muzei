@@ -32,8 +32,6 @@ import com.google.android.apps.muzei.api.provider.MuzeiArtProvider;
 import com.google.android.apps.muzei.room.MuzeiDatabase;
 import com.google.android.apps.muzei.room.Source;
 
-import net.nurik.roman.muzei.R;
-
 import java.net.URISyntaxException;
 import java.util.List;
 
@@ -109,7 +107,7 @@ public class LegacyArtProvider extends MuzeiArtProvider {
                     .putExtra(EXTRA_COMMAND_ID, id));
         } catch (IllegalStateException e) {
             Log.i(TAG, "Sending action + " + id + " to " + source.componentName + " failed", e);
-            Toast.makeText(context, R.string.source_unavailable, Toast.LENGTH_LONG).show();
+            Toast.makeText(context, R.string.legacy_source_unavailable, Toast.LENGTH_LONG).show();
             LegacySourceManager.invalidateSelectedSource(context);
         }
     }

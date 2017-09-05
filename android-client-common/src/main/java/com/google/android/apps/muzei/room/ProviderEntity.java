@@ -34,7 +34,7 @@ public class ProviderEntity {
     @NonNull
     public ComponentName componentName;
 
-    ProviderEntity(@NonNull ComponentName componentName) {
+    public ProviderEntity(@NonNull ComponentName componentName) {
         this.componentName = componentName;
     }
 }

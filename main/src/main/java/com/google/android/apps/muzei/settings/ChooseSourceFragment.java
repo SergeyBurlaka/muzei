@@ -63,11 +63,11 @@ import android.view.ViewTreeObserver;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.google.android.apps.muzei.api.MuzeiArtSource;
 import com.google.android.apps.muzei.api.provider.MuzeiArtProvider;
 import com.google.android.apps.muzei.notifications.NotificationSettingsDialogFragment;
 import com.google.android.apps.muzei.room.MuzeiDatabase;
 import com.google.android.apps.muzei.room.Provider;
+import com.google.android.apps.muzei.sync.ProviderManager;
 import com.google.android.apps.muzei.util.ObservableHorizontalScrollView;
 import com.google.android.apps.muzei.util.Scrollbar;
 import com.google.firebase.analytics.FirebaseAnalytics;
@@ -568,7 +568,7 @@ public class ChooseSourceFragment extends Fragment {
                         bundle.putString(FirebaseAnalytics.Param.ITEM_ID, source.componentName.flattenToShortString());
                         bundle.putString(FirebaseAnalytics.Param.CONTENT_TYPE, "sources");
                         FirebaseAnalytics.getInstance(getContext()).logEvent(FirebaseAnalytics.Event.SELECT_CONTENT, bundle);
-                        MuzeiDatabase.getInstance(getContext()).selectProvider(source.componentName);
+                        ProviderManager.getInstance(getContext()).selectProvider(source.componentName);
                     }
                 }
             });
@@ -655,7 +655,7 @@ public class ChooseSourceFragment extends Fragment {
                 bundle.putString(FirebaseAnalytics.Param.ITEM_ID, mCurrentInitialSetupSource.flattenToShortString());
                 bundle.putString(FirebaseAnalytics.Param.CONTENT_TYPE, "sources");
                 FirebaseAnalytics.getInstance(getContext()).logEvent(FirebaseAnalytics.Event.SELECT_CONTENT, bundle);
-                MuzeiDatabase.getInstance(getContext()).selectProvider(mCurrentInitialSetupSource);
+                ProviderManager.getInstance(getContext()).selectProvider(mCurrentInitialSetupSource);
             }
 
             mCurrentInitialSetupSource = null;

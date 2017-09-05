@@ -44,8 +44,10 @@ import android.view.Gravity;
 import android.view.SurfaceHolder;
 import android.view.WindowInsets;
 
+import com.firebase.jobdispatcher.FirebaseJobDispatcher;
+import com.firebase.jobdispatcher.GooglePlayDriver;
 import com.google.android.apps.muzei.api.MuzeiContract;
-import com.google.android.apps.muzei.datalayer.ArtworkCacheIntentService;
+import com.google.android.apps.muzei.datalayer.DataLayerLoadJobService;
 import com.google.android.apps.muzei.util.ImageBlurrer;
 import com.google.firebase.analytics.FirebaseAnalytics;
 
@@ -116,9 +118,15 @@ public class MuzeiWatchFace extends CanvasWatchFaceService {
                         bitmap = BitmapFactory.decodeStream(getAssets().open("starrynight.jpg"));
                         // Try to download the artwork from the DataLayer, showing a notification
                         // to activate Muzei if it isn't found
-                        Intent intent = new Intent(MuzeiWatchFace.this, ArtworkCacheIntentService.class);
-                        intent.putExtra(ArtworkCacheIntentService.SHOW_ACTIVATE_NOTIFICATION_EXTRA, true);
-                        startService(intent);
+                        FirebaseJobDispatcher dispatcher = new FirebaseJobDispatcher(
+                                new GooglePlayDriver(MuzeiWatchFace.this));
+                        Bundle bundle = new Bundle();
+                        bundle.putBoolean(DataLayerLoadJobService.SHOW_ACTIVATE_NOTIFICATION_EXTRA, true);
+                        dispatcher.mustSchedule(dispatcher.newJobBuilder()
+                                .setService(DataLayerLoadJobService.class)
+                                .setTag("datalayer")
+                                .setExtras(bundle)
+                                .build());
                     } catch (IOException e) {
                         Log.e(TAG, "Error opening starry night asset", e);
                     }

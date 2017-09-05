@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 5,
-    "identityHash": "a20397281a1fd1c46ecf6dc8e64f7378",
+    "identityHash": "5c39549b45ca82f8392450727ef062b0",
     "entities": [
       {
         "tableName": "provider",
@@ -26,7 +26,7 @@
       },
       {
         "tableName": "Artwork",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`_id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `sourceComponentName` TEXT, `imageUri` TEXT, `title` TEXT, `byline` TEXT, `attribution` TEXT, `token` TEXT, `metaFont` TEXT NOT NULL, `date_added` INTEGER NOT NULL, `viewIntent` TEXT)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`_id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `sourceComponentName` TEXT, `imageUri` TEXT, `title` TEXT, `byline` TEXT, `attribution` TEXT, `token` TEXT, `metaFont` TEXT NOT NULL)",
         "fields": [
           {
             "fieldPath": "id",
@@ -75,18 +75,6 @@
             "columnName": "metaFont",
             "affinity": "TEXT",
             "notNull": true
-          },
-          {
-            "fieldPath": "dateAdded",
-            "columnName": "date_added",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "viewIntent",
-            "columnName": "viewIntent",
-            "affinity": "TEXT",
-            "notNull": false
           }
         ],
         "primaryKey": {
@@ -175,7 +163,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, \"a20397281a1fd1c46ecf6dc8e64f7378\")"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, \"5c39549b45ca82f8392450727ef062b0\")"
     ]
   }
 }

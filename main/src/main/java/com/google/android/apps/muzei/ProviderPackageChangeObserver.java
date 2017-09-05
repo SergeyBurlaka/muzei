@@ -34,6 +34,7 @@ import android.util.Log;
 import com.google.android.apps.muzei.featuredart.FeaturedArtProvider;
 import com.google.android.apps.muzei.room.MuzeiDatabase;
 import com.google.android.apps.muzei.room.Provider;
+import com.google.android.apps.muzei.sync.ProviderManager;
 
 /**
  * LifecycleObserver used to watch for changes to installed packages on the device. This triggers
@@ -64,7 +65,7 @@ public class ProviderPackageChangeObserver implements LifecycleObserver {
                                 } catch (PackageManager.NameNotFoundException e) {
                                     Log.i(TAG, "Selected provider " + provider.componentName
                                             + " is no longer available; switching to default.");
-                                    MuzeiDatabase.getInstance(context).selectProvider(
+                                    ProviderManager.getInstance(context).selectProvider(
                                             new ComponentName(context, FeaturedArtProvider.class));
                                     return;
                                 }

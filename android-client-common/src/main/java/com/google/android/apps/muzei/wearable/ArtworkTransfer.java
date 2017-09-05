@@ -20,7 +20,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
 
-import com.google.android.apps.muzei.room.Artwork;
+import com.google.android.apps.muzei.api.provider.Artwork;
 import com.google.android.gms.wearable.DataMap;
 
 /**
@@ -31,7 +31,6 @@ public class ArtworkTransfer {
     private static final String KEY_TITLE = "title";
     private static final String KEY_BYLINE = "byline";
     private static final String KEY_ATTRIBUTION = "attribution";
-    private static final String KEY_TOKEN = "token";
 
     /**
      * Serializes this artwork object to a {@link DataMap} representation.
@@ -41,11 +40,10 @@ public class ArtworkTransfer {
      */
     public static DataMap toDataMap(Artwork artwork) {
         Bundle bundle = new Bundle();
-        bundle.putString(KEY_IMAGE_URI, (artwork.imageUri != null) ? artwork.imageUri.toString() : null);
-        bundle.putString(KEY_TITLE, artwork.title);
-        bundle.putString(KEY_BYLINE, artwork.byline);
-        bundle.putString(KEY_ATTRIBUTION, artwork.attribution);
-        bundle.putString(KEY_TOKEN, artwork.token);
+        bundle.putString(KEY_IMAGE_URI, (artwork.getPersistentUri() != null) ? artwork.getPersistentUri().toString() : null);
+        bundle.putString(KEY_TITLE, artwork.getTitle());
+        bundle.putString(KEY_BYLINE, artwork.getByline());
+        bundle.putString(KEY_ATTRIBUTION, artwork.getAttribution());
         return DataMap.fromBundle(bundle);
     }
 
@@ -57,16 +55,15 @@ public class ArtworkTransfer {
      */
     public static Artwork fromDataMap(DataMap dataMap) {
         Bundle bundle = dataMap.toBundle();
-        Artwork artwork = new Artwork();
+        Artwork.Builder builder = new Artwork.Builder();
         String imageUri = bundle.getString(KEY_IMAGE_URI);
         if (!TextUtils.isEmpty(imageUri)) {
-            artwork.imageUri = Uri.parse(imageUri);
+            builder.persistentUri(Uri.parse(imageUri));
         }
-        artwork.title = bundle.getString(KEY_TITLE);
-        artwork.byline = bundle.getString(KEY_BYLINE);
-        artwork.attribution = bundle.getString(KEY_ATTRIBUTION);
-        artwork.token = bundle.getString(KEY_TOKEN);
-        return artwork;
+        builder.title(bundle.getString(KEY_TITLE));
+        builder.byline(bundle.getString(KEY_BYLINE));
+        builder.attribution(bundle.getString(KEY_ATTRIBUTION));
+        return builder.build();
     }
 
     private ArtworkTransfer() {

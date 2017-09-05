@@ -31,7 +31,7 @@ import android.widget.Toast;
 import com.google.android.apps.muzei.gallery.ChosenPhoto;
 import com.google.android.apps.muzei.gallery.GalleryArtSource;
 import com.google.android.apps.muzei.gallery.GalleryDatabase;
-import com.google.android.apps.muzei.room.MuzeiDatabase;
+import com.google.android.apps.muzei.sync.ProviderManager;
 import com.google.firebase.analytics.FirebaseAnalytics;
 
 import net.nurik.roman.muzei.R;
@@ -70,8 +70,8 @@ public class PhotoSetAsTargetActivity extends Activity {
                         new ComponentName(context, GalleryArtSource.class).flattenToShortString());
                 bundle.putString(FirebaseAnalytics.Param.CONTENT_TYPE, "sources");
                 FirebaseAnalytics.getInstance(context).logEvent(FirebaseAnalytics.Event.SELECT_CONTENT, bundle);
-                MuzeiDatabase.getInstance(context).selectProvider(new ComponentName(context, GalleryArtSource.class),
-                        new MuzeiDatabase.ProviderCallback() {
+                ProviderManager.getInstance(context).selectProvider(new ComponentName(context, GalleryArtSource.class),
+                        new ProviderManager.ProviderCallback() {
                             @Override
                             public void onProviderSelected() {
                                 Uri uri = ChosenPhoto.getContentUri(id);

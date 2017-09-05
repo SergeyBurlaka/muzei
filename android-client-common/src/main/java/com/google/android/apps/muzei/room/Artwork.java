@@ -38,16 +38,13 @@ import android.widget.Toast;
 
 import com.google.android.apps.muzei.api.MuzeiContract;
 import com.google.android.apps.muzei.api.UserCommand;
-import com.google.android.apps.muzei.api.provider.MuzeiArtProvider;
 import com.google.android.apps.muzei.room.converter.ComponentNameTypeConverter;
-import com.google.android.apps.muzei.room.converter.DateTypeConverter;
 import com.google.android.apps.muzei.room.converter.UriTypeConverter;
 import com.google.android.apps.muzei.room.converter.UserCommandTypeConverter;
 
 import net.nurik.roman.muzei.androidclientcommon.R;
 
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -97,11 +94,6 @@ public class Artwork {
     @NonNull
     public String metaFont = MuzeiContract.Artwork.META_FONT_TYPE_DEFAULT;
 
-    @TypeConverters(DateTypeConverter.class)
-    @ColumnInfo(name = "date_added")
-    @NonNull
-    public Date dateAdded = new Date();
-
     @NonNull
     public Uri getContentUri() {
         return getContentUri(id);
@@ -114,8 +106,7 @@ public class Artwork {
     }
 
     private ContentProviderClient getContentProviderClient(Context context) {
-        return context.getContentResolver().acquireUnstableContentProviderClient(
-                MuzeiArtProvider.getContentUri(context, sourceComponentName));
+        return context.getContentResolver().acquireUnstableContentProviderClient(imageUri);
     }
 
     @SuppressLint("StaticFieldLeak")
@@ -133,7 +124,7 @@ public class Artwork {
                                 null);
                         return result != null && result.getBoolean(KEY_OPEN_ARTWORK_INFO_SUCCESS);
                     } catch (RemoteException e) {
-                        Log.i(TAG, "Provider " + sourceComponentName + " crashed while opening artwork info", e);
+                        Log.i(TAG, "Provider for " + imageUri + " crashed while opening artwork info", e);
                         return false;
                     }
                 }
@@ -181,7 +172,7 @@ public class Artwork {
                 String commandsString = result != null ? result.getString(KEY_COMMANDS, null) : null;
                 return UserCommandTypeConverter.fromString(commandsString);
             } catch (RemoteException e) {
-                Log.i(TAG, "Provider " + sourceComponentName + " crashed while retrieving commands", e);
+                Log.i(TAG, "Provider for " + imageUri + " crashed while retrieving commands", e);
                 return commands;
             }
         }
@@ -203,7 +194,7 @@ public class Artwork {
                                 imageUri.toString(),
                                 extras);
                     } catch (RemoteException e) {
-                        Log.i(TAG, "Provider " + sourceComponentName + " crashed while sending action", e);
+                        Log.i(TAG, "Provider for " + imageUri + " crashed while sending action", e);
                     }
                     return null;
                 }

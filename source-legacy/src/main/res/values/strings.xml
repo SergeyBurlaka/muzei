@@ -17,4 +17,5 @@
 <resources>
     <string name="legacy_source_title">Legacy Plugins</string>
     <string name="legacy_source_description">Select plugins built with the legacy API</string>
+    <string name="legacy_source_unavailable">Your selected source is unavailable. Switching to the default source.</string>
 </resources>

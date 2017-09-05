@@ -17,20 +17,16 @@
 package com.google.android.apps.muzei.provider;
 
 import android.arch.persistence.db.SupportSQLiteQueryBuilder;
-import android.content.ComponentName;
 import android.content.ContentProvider;
 import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Context;
-import android.content.Intent;
 import android.content.UriMatcher;
 import android.database.Cursor;
 import android.database.DatabaseUtils;
 import android.database.MatrixCursor;
-import android.database.sqlite.SQLiteException;
 import android.net.Uri;
 import android.os.Build;
-import android.os.Handler;
 import android.os.ParcelFileDescriptor;
 import android.provider.BaseColumns;
 import android.support.annotation.NonNull;
@@ -47,14 +43,8 @@ import com.google.android.apps.muzei.room.converter.UserCommandTypeConverter;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -63,12 +53,6 @@ import java.util.Set;
  */
 public class MuzeiProvider extends ContentProvider {
     private static final String TAG = "MuzeiProvider";
-    /**
-     * Maximum number of previous artwork to keep per source, with the exception of artwork that
-     * has a persisted permission.
-     * @see #cleanupCachedFiles
-     */
-    private static final int MAX_CACHE_SIZE = 10;
     /**
      * The incoming URI matches the ARTWORK URI pattern
      */
@@ -94,7 +78,6 @@ public class MuzeiProvider extends ContentProvider {
      */
     private final HashMap<String, String> allArtworkColumnProjectionMap =
             MuzeiProvider.buildAllArtworkColumnProjectionMap();
-    private Handler openFileHandler;
 
     /**
      * Creates and initializes a column project for all columns for Artwork
@@ -198,7 +181,6 @@ public class MuzeiProvider extends ContentProvider {
      */
     @Override
     public boolean onCreate() {
-        openFileHandler = new Handler();
         // Schedule a job that will update the latest artwork in the Direct Boot cache directory
         // whenever the artwork changes
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -317,7 +299,8 @@ public class MuzeiProvider extends ContentProvider {
     }
 
     @Override
-    public ParcelFileDescriptor openFile(@NonNull final Uri uri, @NonNull final String mode) throws FileNotFoundException {
+    public ParcelFileDescriptor openFile(@NonNull final Uri uri, @NonNull final String mode)
+            throws FileNotFoundException {
         if (MuzeiProvider.uriMatcher.match(uri) == MuzeiProvider.ARTWORK ||
                 MuzeiProvider.uriMatcher.match(uri) == MuzeiProvider.ARTWORK_ID) {
             return openFileArtwork(uri, mode);
@@ -327,187 +310,26 @@ public class MuzeiProvider extends ContentProvider {
     }
 
     @Nullable
-    private ParcelFileDescriptor openFileArtwork(@NonNull final Uri uri, @NonNull final String mode) throws FileNotFoundException {
+    private ParcelFileDescriptor openFileArtwork(@NonNull final Uri uri, @NonNull final String mode)
+            throws FileNotFoundException {
         final Context context = getContext();
         if (context == null) {
             return null;
         }
-        final boolean isWriteOperation = mode.contains("w");
-        final File file;
         if (!UserManagerCompat.isUserUnlocked(context)) {
-            if (isWriteOperation) {
-                Log.w(TAG, "Wallpaper is read only until the user is unlocked");
-                return null;
+            File file = DirectBootCacheJobService.getCachedArtwork(context);
+            if (file == null) {
+                throw new FileNotFoundException("No wallpaper was cached for Direct Boot");
             }
-            file = DirectBootCacheJobService.getCachedArtwork(context);
-        } else if (!isWriteOperation && MuzeiProvider.uriMatcher.match(uri) == MuzeiProvider.ARTWORK) {
-            // If it isn't a write operation, then we should attempt to find the latest artwork
-            // that does have a cached artwork file. This prevents race conditions where
-            // an external app attempts to load the latest artwork while an art source is inserting a
-            // new artwork
-            List<Artwork> artworkList = MuzeiDatabase.getInstance(context).artworkDao().getArtworkBlocking();
-            if (artworkList == null || artworkList.isEmpty()) {
-                if (!context.getPackageName().equals(getCallingPackage())) {
-                    Log.w(TAG, "You must insert at least one row to read or write artwork");
-                }
-                return null;
-            }
-            File foundFile = null;
-            for (Artwork artwork : artworkList) {
-                File possibleFile = getCacheFileForArtworkUri(context, artwork.id);
-                if (possibleFile != null && possibleFile.exists()) {
-                    foundFile = possibleFile;
-                    break;
-                }
-            }
-            file = foundFile;
-        } else {
-            file = getCacheFileForArtworkUri(context, ContentUris.parseId(uri));
+            return ParcelFileDescriptor.open(file, ParcelFileDescriptor.parseMode(mode));
         }
-        if (file == null) {
-            throw new FileNotFoundException("Could not create artwork file for " + uri + " for mode " + mode);
-        }
-        if (file.exists() && file.length() > 0 && isWriteOperation) {
-            if (!context.getPackageName().equals(getCallingPackage())) {
-                Log.w(TAG, "Writing to an existing artwork file is not allowed: insert a new row");
-            }
-            return null;
-        }
-        try {
-            return ParcelFileDescriptor.open(file, ParcelFileDescriptor.parseMode(mode), openFileHandler,
-                    new ParcelFileDescriptor.OnCloseListener() {
-                        @Override
-                        public void onClose(final IOException e) {
-                            if (isWriteOperation) {
-                                if (e != null) {
-                                    Log.e(TAG, "Error closing " + file + " for " + uri, e);
-                                    if (file.exists()) {
-                                        if (!file.delete()) {
-                                            Log.w(TAG, "Unable to delete " + file);
-                                        }
-                                    }
-                                } else {
-                                    // The file was successfully written, notify listeners of the new artwork
-                                    context.getContentResolver()
-                                            .notifyChange(MuzeiContract.Artwork.CONTENT_URI, null);
-                                    context.sendBroadcast(
-                                            new Intent(MuzeiContract.Artwork.ACTION_ARTWORK_CHANGED));
-                                    cleanupCachedFiles(context);
-                                }
-                            }
-
-                        }
-                    });
-        } catch (IOException e) {
-            Log.e(TAG, "Error opening artwork " + uri, e);
-            throw new FileNotFoundException("Error opening artwork " + uri);
-        }
-    }
-
-    @Nullable
-    public static File getCacheFileForArtworkUri(Context context, long artworkId) {
-        File directory = new File(context.getFilesDir(), "artwork");
-        if (!directory.exists() && !directory.mkdirs()) {
-            return null;
-        }
-        Artwork artwork = MuzeiDatabase.getInstance(context).artworkDao().getArtworkById(artworkId);
+        Artwork artwork = MuzeiProvider.uriMatcher.match(uri) == MuzeiProvider.ARTWORK
+                ? MuzeiDatabase.getInstance(context).artworkDao().getCurrentArtworkBlocking()
+                : MuzeiDatabase.getInstance(context).artworkDao().getArtworkById(ContentUris.parseId(uri));
         if (artwork == null) {
-            return null;
+            throw new FileNotFoundException("Could not get artwork file for " + uri);
         }
-        if (artwork.imageUri == null && TextUtils.isEmpty(artwork.token)) {
-            return new File(directory, Long.toString(artwork.id));
-        }
-        // Otherwise, create a unique filename based on the imageUri and token
-        StringBuilder filename = new StringBuilder();
-        if (artwork.imageUri != null) {
-            filename.append(artwork.imageUri.getScheme()).append("_")
-                    .append(artwork.imageUri.getHost()).append("_");
-            String encodedPath = artwork.imageUri.getEncodedPath();
-            if (!TextUtils.isEmpty(encodedPath)) {
-                int length = encodedPath.length();
-                if (length > 60) {
-                    encodedPath = encodedPath.substring(length - 60);
-                }
-                encodedPath = encodedPath.replace('/', '_');
-                filename.append(encodedPath).append("_");
-            }
-        }
-        // Use the imageUri if available, otherwise use the token
-        String unique = artwork.imageUri != null ? artwork.imageUri.toString() : artwork.token;
-        try {
-            MessageDigest md = MessageDigest.getInstance("MD5");
-            md.update(unique.getBytes("UTF-8"));
-            byte[] digest = md.digest();
-            for (byte b : digest) {
-                if ((0xff & b) < 0x10) {
-                    filename.append("0").append(Integer.toHexString((0xFF & b)));
-                } else {
-                    filename.append(Integer.toHexString(0xFF & b));
-                }
-            }
-        } catch (NoSuchAlgorithmException | UnsupportedEncodingException e) {
-            filename.append(unique.hashCode());
-        }
-        return new File(directory, filename.toString());
-    }
-
-    /**
-     * Limit the number of cached files per art provider to {@link #MAX_CACHE_SIZE}.
-     * @see #MAX_CACHE_SIZE
-     */
-    public static void cleanupCachedFiles(final Context context) {
-        new Thread() {
-            @Override
-            public void run() {
-                final MuzeiDatabase database = MuzeiDatabase.getInstance(context);
-                final List<ComponentName> providers = database.artworkDao().getDistinctProviders();
-                if (providers == null) {
-                    return;
-                }
-                // Loop through each source, cleaning up old artwork
-                for (ComponentName componentName : providers) {
-                    final List<Artwork> artworkList = database.artworkDao()
-                            .getArtworkByComponentName(componentName);
-                    if (artworkList == null || artworkList.isEmpty()) {
-                        continue;
-                    }
-                    List<Long> artworkIdsToKeep = new ArrayList<>();
-                    List<String> artworkToKeep = new ArrayList<>();
-                    // Go through the artwork from this source and find the most recent artwork
-                    // and mark them as artwork to keep
-                    int count = 0;
-                    List<Long> mostRecentArtworkIds = new ArrayList<>();
-                    List<String> mostRecentArtwork = new ArrayList<>();
-                    for (Artwork artwork : artworkList) {
-                        String unique = artwork.imageUri != null ? artwork.imageUri.toString() : artwork.token;
-                        if (mostRecentArtworkIds.size() < MAX_CACHE_SIZE && !mostRecentArtwork.contains(unique)) {
-                            mostRecentArtwork.add(unique);
-                            mostRecentArtworkIds.add(artwork.id);
-                        }
-                        if (artworkToKeep.contains(unique)) {
-                            // This ensures we are not double counting the same artwork in our count
-                            artworkIdsToKeep.add(artwork.id);
-                            continue;
-                        }
-                        if (count++ < MAX_CACHE_SIZE) {
-                            // Keep artwork below the MAX_CACHE_SIZE
-                            artworkIdsToKeep.add(artwork.id);
-                            artworkToKeep.add(unique);
-                        }
-                    }
-                    // Now delete all artwork not in the keep list
-                    try {
-                        database.artworkDao().deleteNonMatching(context,
-                                componentName, artworkIdsToKeep);
-                    } catch (IllegalStateException|SQLiteException e) {
-                        Log.e(TAG, "Unable to read all artwork for " + componentName +
-                                ", deleting everything but the latest artwork to get back to a good state", e);
-                        database.artworkDao().deleteNonMatching(context,
-                                componentName, mostRecentArtworkIds);
-                    }
-                }
-            }
-        }.start();
+        return context.getContentResolver().openFileDescriptor(artwork.imageUri, mode);
     }
 
     @Override

@@ -16,8 +16,8 @@
 
 package com.google.android.apps.muzei.datalayer;
 
-import android.content.Intent;
-
+import com.firebase.jobdispatcher.FirebaseJobDispatcher;
+import com.firebase.jobdispatcher.GooglePlayDriver;
 import com.google.android.gms.wearable.DataEventBuffer;
 import com.google.android.gms.wearable.WearableListenerService;
 
@@ -28,6 +28,10 @@ public class ArtworkChangedListenerService extends WearableListenerService {
     @Override
     public void onDataChanged(final DataEventBuffer dataEvents) {
         // Only artwork changes trigger this WearableListenerService
-        startService(new Intent(this, ArtworkCacheIntentService.class));
+        FirebaseJobDispatcher dispatcher = new FirebaseJobDispatcher(new GooglePlayDriver(this));
+        dispatcher.mustSchedule(dispatcher.newJobBuilder()
+                .setService(DataLayerLoadJobService.class)
+                .setTag("datalayer")
+                .build());
     }
 }

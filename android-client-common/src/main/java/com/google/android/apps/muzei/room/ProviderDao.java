@@ -50,8 +50,8 @@ public abstract class ProviderDao {
     }
 
     @Insert
-    abstract void insert(ProviderEntity provider);
+    public abstract void insert(ProviderEntity provider);
 
     @Query("DELETE FROM provider")
-    abstract void deleteAll();
+    public abstract void deleteAll();
 }

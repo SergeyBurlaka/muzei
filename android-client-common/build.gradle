@@ -31,6 +31,9 @@ dependencies {
     implementation ("com.google.firebase:firebase-core:$rootProject.ext.googlePlayServicesVersion") {
         exclude module: 'support-v4'
     }
+    implementation ("com.firebase:firebase-jobdispatcher:$rootProject.ext.jobDispatcherVersion") {
+        exclude module: 'support-v4'
+    }
 }
 
 android {
