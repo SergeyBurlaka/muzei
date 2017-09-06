@@ -25,7 +25,7 @@ import com.google.android.apps.muzei.room.Provider;
 import static com.twofortyfouram.locale.api.Intent.ACTION_FIRE_SETTING;
 
 /**
- * Tasker FIRE_SETTING receiver that fires source actions
+ * Tasker FIRE_SETTING receiver that fires provider actions
  */
 public class TaskerActionReceiver extends BroadcastReceiver {
     @Override

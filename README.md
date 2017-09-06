@@ -15,6 +15,6 @@ Alternatively, you can choose your favorite photos from your own gallery or othe
 Muzei API
 =========
 
-Muzei offers a simple API that allows you to build your own wallpaper source.
+Muzei offers a simple API that allows you to build your own wallpaper provider.
 
-**[Read the API docs](http://api.muzei.co)**&nbsp;&nbsp;•&nbsp;&nbsp;**[Check out the 500px example source](https://github.com/romannurik/muzei/tree/master/example-source-500px)**
+**[Read the API docs](http://api.muzei.co)**&nbsp;&nbsp;•&nbsp;&nbsp;**[Check out the 500px example provider](https://github.com/romannurik/muzei/tree/master/example-source-500px)**

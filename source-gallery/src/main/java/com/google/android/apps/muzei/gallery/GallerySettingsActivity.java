@@ -709,7 +709,7 @@ public class GallerySettingsActivity extends AppCompatActivity
         List<ChosenPhoto> chosenPhotos = mChosenPhotosLiveData.getValue();
         if (chosenPhotos != null && !chosenPhotos.isEmpty()) {
             emptyView.setVisibility(View.GONE);
-            // We have at least one image, so consider the Gallery source properly setup
+            // We have at least one image, so consider the Gallery provider properly setup
             setResult(RESULT_OK);
         } else {
             // No chosen images, show the empty View

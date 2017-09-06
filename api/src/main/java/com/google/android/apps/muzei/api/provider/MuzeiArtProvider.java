@@ -102,7 +102,7 @@ import static com.google.android.apps.muzei.api.internal.ProtocolConstants.METHO
  * data by adding the {@link ProviderContract#ACCESS_PERMISSION}, which will ensure that only your app and
  * Muzei can access your data.
  *
- * <p> Muzei uses the drawable indicated by the source's <code>android:icon</code> attribute
+ * <p> Muzei uses the drawable indicated by the provider's <code>android:icon</code> attribute
  * in the <code>&lt;provider&gt;</code> element to represent the provider in the user interface.
  * The icon should be completely flat and contain padding, as Muzei will apply some additional
  * styling to present the icon.
@@ -127,7 +127,7 @@ import static com.google.android.apps.muzei.api.internal.ProtocolConstants.METHO
  *
  * <h3>Example</h3>
  *
- * Below is an example source declaration in the manifest:
+ * Below is an example provider declaration in the manifest:
  *
  * <pre class="prettyprint">
  * &lt;provider android:name=".ExampleArtSource"

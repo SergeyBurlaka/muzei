@@ -29,6 +29,7 @@ import android.util.Log;
 import android.widget.Toast;
 
 import com.google.android.apps.muzei.gallery.ChosenPhoto;
+import com.google.android.apps.muzei.gallery.GalleryArtProvider;
 import com.google.android.apps.muzei.gallery.GalleryArtSource;
 import com.google.android.apps.muzei.gallery.GalleryDatabase;
 import com.google.android.apps.muzei.sync.ProviderManager;
@@ -64,16 +65,17 @@ public class PhotoSetAsTargetActivity extends Activity {
                     return;
                 }
 
-                // If adding the artwork succeeded, select the gallery source and publish the new image
+                // If adding the artwork succeeded, select the gallery provider and publish the new image
                 Bundle bundle = new Bundle();
                 bundle.putString(FirebaseAnalytics.Param.ITEM_ID,
-                        new ComponentName(context, GalleryArtSource.class).flattenToShortString());
+                        new ComponentName(context, GalleryArtProvider.class).flattenToShortString());
                 bundle.putString(FirebaseAnalytics.Param.CONTENT_TYPE, "sources");
                 FirebaseAnalytics.getInstance(context).logEvent(FirebaseAnalytics.Event.SELECT_CONTENT, bundle);
-                ProviderManager.getInstance(context).selectProvider(new ComponentName(context, GalleryArtSource.class),
+                ProviderManager.getInstance(context).selectProvider(new ComponentName(context, GalleryArtProvider.class),
                         new ProviderManager.ProviderCallback() {
                             @Override
                             public void onProviderSelected() {
+                                // TODO Update to call through to GalleryArtProvider
                                 Uri uri = ChosenPhoto.getContentUri(id);
                                 startService(new Intent(context, GalleryArtSource.class)
                                         .setAction(GalleryArtSource.ACTION_PUBLISH_NEXT_GALLERY_ITEM)
