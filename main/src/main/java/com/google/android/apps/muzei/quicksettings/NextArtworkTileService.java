@@ -75,7 +75,7 @@ public class NextArtworkTileService extends TileService implements LifecycleOwne
     @Override
     public void onStartListening() {
         // Start listening for provider changes
-        MuzeiDatabase.getInstance(this).providerDao().getCurrentProvider(this)
+        MuzeiDatabase.getInstance(this).providerDao().getCurrentProvider()
                 .observe(this, new Observer<Provider>() {
                     @Override
                     public void onChanged(@Nullable final Provider provider) {

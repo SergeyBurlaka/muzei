@@ -216,7 +216,7 @@ public class MuzeiProvider extends ContentProvider {
         }
         SupportSQLiteQueryBuilder qb = SupportSQLiteQueryBuilder.builder("artwork");
         qb.columns(computeColumns(projection, allArtworkColumnProjectionMap));
-        Provider provider = MuzeiDatabase.getInstance(context).providerDao().getCurrentProviderBlocking(context);
+        Provider provider = MuzeiDatabase.getInstance(context).providerDao().getCurrentProviderBlocking();
         String finalSelection = DatabaseUtils.concatenateWhere(selection,
                 "artwork.sourceComponentName = " + provider.componentName.flattenToShortString());
         if (MuzeiProvider.uriMatcher.match(uri) == ARTWORK_ID) {

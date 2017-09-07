@@ -46,7 +46,7 @@ public class ArtworkLoadJobService extends SimpleJobService {
     public int onRunJob(final JobParameters job) {
         MuzeiDatabase database = MuzeiDatabase.getInstance(this);
         Provider provider = database.providerDao()
-                .getCurrentProviderBlocking(this);
+                .getCurrentProviderBlocking();
         if (provider == null) {
             return JobService.RESULT_FAIL_NORETRY;
         }

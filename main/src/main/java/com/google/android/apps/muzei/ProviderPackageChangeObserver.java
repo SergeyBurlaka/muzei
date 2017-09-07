@@ -53,7 +53,7 @@ public class ProviderPackageChangeObserver implements LifecycleObserver {
             final String packageName = intent.getData().getSchemeSpecificPart();
             final PendingResult pendingResult = goAsync();
             final LiveData<Provider> providerLiveData = MuzeiDatabase.getInstance(context).providerDao()
-                    .getCurrentProvider(context);
+                    .getCurrentProvider();
             providerLiveData.observeForever(
                     new Observer<Provider>() {
                         @Override

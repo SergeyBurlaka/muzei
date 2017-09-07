@@ -16,132 +16,25 @@
 
 package com.google.android.apps.muzei.room;
 
+import android.arch.persistence.room.Entity;
+import android.arch.persistence.room.PrimaryKey;
+import android.arch.persistence.room.TypeConverters;
 import android.content.ComponentName;
-import android.content.Context;
-import android.content.pm.PackageManager;
-import android.content.pm.ProviderInfo;
-import android.graphics.Color;
-import android.graphics.drawable.Drawable;
-import android.os.Bundle;
-import android.support.annotation.ColorInt;
 import android.support.annotation.NonNull;
-import android.text.TextUtils;
+
+import com.google.android.apps.muzei.room.converter.ComponentNameTypeConverter;
 
 /**
- * Encapsulates the connection and information about a Provider
+ * Provider information's representation in Room
  */
-public class Provider extends ProviderEntity {
-    private final Context mContext;
-
-    private ProviderInfo mProviderInfo;
-    private String mLabel;
-    private Drawable mIcon;
-    private @ColorInt int mColor;
-    private boolean mIsSettingsActivitySet;
-    private ComponentName mSettingsActivity;
-    private boolean mIsSetupActivitySet;
-    private ComponentName mSetupActivity;
-
-    Provider(Context context, @NonNull ProviderEntity provider) {
-        this(context, provider.componentName);
-    }
-
-    public Provider(Context context, @NonNull ComponentName provider) {
-        super(provider);
-        mContext = context.getApplicationContext();
-    }
-
+@Entity(tableName = "provider")
+public class Provider {
+    @TypeConverters({ComponentNameTypeConverter.class})
+    @PrimaryKey
     @NonNull
-    private ProviderInfo getProviderInfo() {
-        if (mProviderInfo == null) {
-            try {
-                mProviderInfo = mContext.getPackageManager().getProviderInfo(componentName, 0);
-            } catch (PackageManager.NameNotFoundException e) {
-                throw new IllegalArgumentException("Invalid MuzeiArtProvider: " + componentName, e);
-            }
-        }
-        return mProviderInfo;
-    }
+    public ComponentName componentName;
 
-    public String getLabel() {
-        if (mLabel == null) {
-            CharSequence label = getProviderInfo().loadLabel(mContext.getPackageManager());
-            mLabel = label != null ? label.toString() : "";
-        }
-        return mLabel;
-    }
-
-    public Drawable getIcon() {
-        if (mIcon == null) {
-            mIcon = getProviderInfo().loadIcon(mContext.getPackageManager());
-        }
-        return mIcon;
-    }
-
-    @ColorInt
-    public int getColor() {
-        if (mColor == -1) {
-            mColor = Color.WHITE;
-            Bundle metaData = getProviderInfo().metaData;
-            if (metaData != null) {
-                mColor = metaData.getInt("color", mColor);
-                try {
-                    float[] hsv = new float[3];
-                    Color.colorToHSV(mColor, hsv);
-                    boolean adjust = false;
-                    if (hsv[2] < 0.8f) {
-                        hsv[2] = 0.8f;
-                        adjust = true;
-                    }
-                    if (hsv[1] > 0.4f) {
-                        hsv[1] = 0.4f;
-                        adjust = true;
-                    }
-                    if (adjust) {
-                        mColor = Color.HSVToColor(hsv);
-                    }
-                    if (Color.alpha(mColor) != 255) {
-                        mColor = Color.argb(255,
-                                Color.red(mColor),
-                                Color.green(mColor),
-                                Color.blue(mColor));
-                    }
-                } catch (IllegalArgumentException ignored) {
-                }
-            }
-        }
-        return mColor;
-    }
-
-    public ComponentName getSettingsActivity() {
-        if (!mIsSettingsActivitySet) {
-            mIsSettingsActivitySet = true;
-            mSettingsActivity = null;
-            Bundle metaData = getProviderInfo().metaData;
-            if (metaData != null) {
-                String settingsActivity = metaData.getString("settingsActivity");
-                if (!TextUtils.isEmpty(settingsActivity)) {
-                    mSettingsActivity = ComponentName.unflattenFromString(
-                            getProviderInfo().packageName + "/" + settingsActivity);
-                }
-            }
-        }
-        return mSettingsActivity;
-    }
-
-    public ComponentName getSetupActivity() {
-        if (!mIsSetupActivitySet) {
-            mIsSetupActivitySet = true;
-            mSetupActivity = null;
-            Bundle metaData = getProviderInfo().metaData;
-            if (metaData != null) {
-                String setupActivity = metaData.getString("setupActivity");
-                if (!TextUtils.isEmpty(setupActivity)) {
-                    mSetupActivity = ComponentName.unflattenFromString(
-                            getProviderInfo().packageName + "/" + setupActivity);
-                }
-            }
-        }
-        return mSetupActivity;
+    public Provider(@NonNull ComponentName componentName) {
+        this.componentName = componentName;
     }
 }

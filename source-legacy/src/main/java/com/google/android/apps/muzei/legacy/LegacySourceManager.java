@@ -164,7 +164,7 @@ public class LegacySourceManager implements LifecycleObserver, Observer<Provider
     @OnLifecycleEvent(Lifecycle.Event.ON_CREATE)
     public void onMuzeiEnabled() {
         // When Muzei is enabled, we start listening for the current provider
-        providerLiveData = MuzeiDatabase.getInstance(mContext).providerDao().getCurrentProvider(mContext);
+        providerLiveData = MuzeiDatabase.getInstance(mContext).providerDao().getCurrentProvider();
         providerLiveData.observeForever(this);
     }
 

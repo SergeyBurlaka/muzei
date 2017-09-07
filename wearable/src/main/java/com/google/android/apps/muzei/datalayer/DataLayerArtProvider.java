@@ -24,16 +24,16 @@ import com.firebase.jobdispatcher.FirebaseJobDispatcher;
 import com.firebase.jobdispatcher.GooglePlayDriver;
 import com.google.android.apps.muzei.api.provider.Artwork;
 import com.google.android.apps.muzei.api.provider.MuzeiArtProvider;
-import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.tasks.Tasks;
 import com.google.android.gms.wearable.Asset;
-import com.google.android.gms.wearable.DataApi;
+import com.google.android.gms.wearable.DataClient;
+import com.google.android.gms.wearable.DataItem;
 import com.google.android.gms.wearable.DataMapItem;
 import com.google.android.gms.wearable.Wearable;
 
 import java.io.FileNotFoundException;
 import java.io.InputStream;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Provider handling art from a connected phone
@@ -57,34 +57,28 @@ public class DataLayerArtProvider extends MuzeiArtProvider {
         if (context == null) {
             throw new FileNotFoundException();
         }
-        GoogleApiClient googleApiClient = new GoogleApiClient.Builder(getContext())
-                .addApi(Wearable.API)
-                .build();
-        ConnectionResult connectionResult =
-                googleApiClient.blockingConnect(30, TimeUnit.SECONDS);
-        if (!connectionResult.isSuccess()) {
-            throw new FileNotFoundException("Failed to connect to GoogleApiClient: " + connectionResult.getErrorCode());
-        }
+        DataClient dataClient = Wearable.getDataClient(context);
         try {
-            DataApi.DataItemResult dataItemResult = Wearable.DataApi.getDataItem(googleApiClient,
-                    Uri.parse("wear://*/artwork")).await();
-            if (!dataItemResult.getStatus().isSuccess()) {
+            DataItem dataItemResult = Tasks.await(dataClient.getDataItem(
+                    Uri.parse("wear://*/artwork")));
+            if (!dataItemResult.isDataValid()) {
                 throw new FileNotFoundException("Error getting artwork DataItem");
             }
-            DataMapItem dataMapItem = DataMapItem.fromDataItem(dataItemResult.getDataItem());
+            DataMapItem dataMapItem = DataMapItem.fromDataItem(dataItemResult);
             final Asset asset = dataMapItem.getDataMap().getAsset("image");
             if (asset == null) {
                 throw new FileNotFoundException("No image asset in datamap");
             }
-            DataApi.GetFdForAssetResult result = Wearable.DataApi.getFdForAsset(googleApiClient, asset).await();
+            DataClient.GetFdForAssetResponse result = Tasks.await(dataClient.getFdForAsset(asset));
             InputStream inputStream = result.getInputStream();
             result.release();
             if (inputStream == null) {
                 throw new FileNotFoundException("Unable to open input stream to artwork");
             }
             return inputStream;
-        } finally {
-            googleApiClient.disconnect();
+        } catch (ExecutionException |InterruptedException e) {
+            throw new FileNotFoundException("Failed to get artwork from Wear: " + e);
+
         }
     }
 }

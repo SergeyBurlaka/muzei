@@ -37,7 +37,7 @@ import java.io.File;
 /**
  * Room Database for Muzei
  */
-@Database(entities = {ProviderEntity.class, Artwork.class, Source.class}, version = 5)
+@Database(entities = {Provider.class, Artwork.class, Source.class}, version = 5)
 public abstract class MuzeiDatabase extends RoomDatabase {
     private static final String USER_PROPERTY_SELECTED_PROVIDER = "selected_provider";
     private static final String USER_PROPERTY_SELECTED_PROVIDER_PACKAGE = "selected_provider_pkg";
@@ -59,7 +59,7 @@ public abstract class MuzeiDatabase extends RoomDatabase {
                     .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
                             new Migration_4_5(applicationContext))
                     .build();
-            sInstance.providerDao().getCurrentProvider(context).observeForever(
+            sInstance.providerDao().getCurrentProvider().observeForever(
                     new Observer<Provider>() {
                         @Override
                         public void onChanged(@Nullable final Provider provider) {

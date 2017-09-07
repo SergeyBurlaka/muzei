@@ -16,13 +16,10 @@
 
 package com.google.android.apps.muzei.room;
 
-import android.arch.core.util.Function;
 import android.arch.lifecycle.LiveData;
-import android.arch.lifecycle.Transformations;
 import android.arch.persistence.room.Dao;
 import android.arch.persistence.room.Insert;
 import android.arch.persistence.room.Query;
-import android.content.Context;
 
 /**
  * Dao for Providers
@@ -30,27 +27,13 @@ import android.content.Context;
 @Dao
 public abstract class ProviderDao {
     @Query("SELECT * FROM provider")
-    abstract LiveData<ProviderEntity> getCurrentProviderEntity();
-
-    public LiveData<Provider> getCurrentProvider(Context context) {
-        final Context applicationContext = context.getApplicationContext();
-        return Transformations.map(getCurrentProviderEntity(), new Function<ProviderEntity, Provider>() {
-            @Override
-            public Provider apply(final ProviderEntity providerEntity) {
-                return new Provider(applicationContext, providerEntity);
-            }
-        });
-    }
+    public abstract LiveData<Provider> getCurrentProvider();
 
     @Query("SELECT * FROM provider")
-    abstract ProviderEntity getCurrentProviderEntityBlocking();
-
-    public Provider getCurrentProviderBlocking(Context context) {
-        return new Provider(context, getCurrentProviderEntityBlocking());
-    }
+    public abstract Provider getCurrentProviderBlocking();
 
     @Insert
-    public abstract void insert(ProviderEntity provider);
+    public abstract void insert(Provider provider);
 
     @Query("DELETE FROM provider")
     public abstract void deleteAll();

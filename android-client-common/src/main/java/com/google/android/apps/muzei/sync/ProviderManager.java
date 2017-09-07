@@ -40,7 +40,6 @@ import com.firebase.jobdispatcher.GooglePlayDriver;
 import com.google.android.apps.muzei.api.provider.MuzeiArtProvider;
 import com.google.android.apps.muzei.room.MuzeiDatabase;
 import com.google.android.apps.muzei.room.Provider;
-import com.google.android.apps.muzei.room.ProviderEntity;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -81,7 +80,7 @@ public class ProviderManager implements LifecycleObserver, Observer<Provider>, L
 
     @OnLifecycleEvent(Lifecycle.Event.ON_CREATE)
     public void onMuzeiEnabled() {
-        mProviderLiveData = MuzeiDatabase.getInstance(mContext).providerDao().getCurrentProvider(mContext);
+        mProviderLiveData = MuzeiDatabase.getInstance(mContext).providerDao().getCurrentProvider();
         mProviderLiveData.observeForever(this);
     }
 
@@ -110,7 +109,7 @@ public class ProviderManager implements LifecycleObserver, Observer<Provider>, L
                 MuzeiDatabase database = MuzeiDatabase.getInstance(mContext);
                 database.beginTransaction();
                 database.providerDao().deleteAll();
-                database.providerDao().insert(new ProviderEntity(componentName));
+                database.providerDao().insert(new Provider(componentName));
                 database.setTransactionSuccessful();
                 database.endTransaction();
                 return null;
@@ -147,7 +146,7 @@ public class ProviderManager implements LifecycleObserver, Observer<Provider>, L
     @NonNull
     public String getCurrentDescription() {
         Provider provider = MuzeiDatabase.getInstance(mContext).providerDao()
-                .getCurrentProviderBlocking(mContext);
+                .getCurrentProviderBlocking();
         return provider != null
                 ? getDescriptionBlocking(provider.componentName)
                 : "";
