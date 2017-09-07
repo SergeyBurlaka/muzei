@@ -29,6 +29,8 @@ import android.content.Context;
 import android.os.AsyncTask;
 import android.support.annotation.Nullable;
 
+import com.firebase.jobdispatcher.FirebaseJobDispatcher;
+import com.firebase.jobdispatcher.GooglePlayDriver;
 import com.google.android.apps.muzei.room.MuzeiDatabase;
 import com.google.android.apps.muzei.room.Provider;
 import com.google.android.apps.muzei.room.ProviderEntity;
@@ -109,5 +111,37 @@ public class ProviderManager implements LifecycleObserver, Observer<Provider>, L
                 }
             }
         }.executeOnExecutor(mExecutor);
+    }
+
+    public interface SupportNextArtworkCallback {
+        void onCallback(boolean supportsNextArtwork);
+    }
+
+    @SuppressLint("StaticFieldLeak")
+    public void getSupportsNextArtwork(final SupportNextArtworkCallback callback) {
+        new AsyncTask<Void, Void, Boolean>() {
+            @Override
+            protected Boolean doInBackground(final Void... voids) {
+                return getSupportsNextArtworkBlocking();
+            }
+
+            @Override
+            protected void onPostExecute(final Boolean supportsNextArtwork) {
+                callback.onCallback(supportsNextArtwork);
+            }
+        }.executeOnExecutor(mExecutor);
+    }
+
+    public boolean getSupportsNextArtworkBlocking() {
+        // TODO Actually check to see if we can go to the next artwork
+        return false;
+    }
+
+    public void nextArtwork() {
+        FirebaseJobDispatcher jobDispatcher = new FirebaseJobDispatcher(new GooglePlayDriver(mContext));
+        jobDispatcher.mustSchedule(jobDispatcher.newJobBuilder()
+            .setService(ArtworkLoadJobService.class)
+            .setTag("next")
+            .build());
     }
 }

@@ -17,8 +17,6 @@
 package com.google.android.apps.muzei.room;
 
 import android.annotation.SuppressLint;
-import android.arch.lifecycle.LiveData;
-import android.arch.lifecycle.Observer;
 import android.content.ComponentName;
 import android.content.ContentProviderClient;
 import android.content.Context;
@@ -32,7 +30,6 @@ import android.os.Bundle;
 import android.os.RemoteException;
 import android.support.annotation.ColorInt;
 import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -49,21 +46,6 @@ import static com.google.android.apps.muzei.api.internal.ProtocolConstants.METHO
  */
 public class Provider extends ProviderEntity {
     private static final String TAG = "ProviderConnection";
-
-    public static void nextArtwork(final Context context) {
-        final LiveData<Provider> providerLiveData = MuzeiDatabase.getInstance(context).providerDao()
-                .getCurrentProvider(context);
-        providerLiveData.observeForever(new Observer<Provider>() {
-            @Override
-            public void onChanged(@Nullable final Provider provider) {
-                providerLiveData.removeObserver(this);
-                if (provider == null) {
-                    return;
-                }
-                provider.nextArtwork();
-            }
-        });
-    }
 
     private final Context mContext;
     private final Uri mContentUri;
@@ -219,32 +201,5 @@ public class Provider extends ProviderEntity {
                 return "";
             }
         }
-    }
-
-    public interface SupportNextArtworkCallback {
-        void onCallback(boolean supportsNextArtwork);
-    }
-
-    @SuppressLint("StaticFieldLeak")
-    public void getSupportsNextArtwork(final SupportNextArtworkCallback callback) {
-        new AsyncTask<Void, Void, Boolean>() {
-            @Override
-            protected Boolean doInBackground(final Void... voids) {
-                return getSupportsNextArtworkBlocking();
-            }
-
-            @Override
-            protected void onPostExecute(final Boolean supportsNextArtwork) {
-                callback.onCallback(supportsNextArtwork);
-            }
-        }.executeOnExecutor(mExecutor);
-    }
-
-    public boolean getSupportsNextArtworkBlocking() {
-        return false;
-    }
-
-    public void nextArtwork() {
-        // TODO Actually trigger the next artwork
     }
 }

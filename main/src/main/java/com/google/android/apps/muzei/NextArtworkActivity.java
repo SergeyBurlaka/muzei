@@ -20,7 +20,7 @@ import android.app.Activity;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 
-import com.google.android.apps.muzei.room.Provider;
+import com.google.android.apps.muzei.sync.ProviderManager;
 
 /**
  * Simple activity that just triggers the 'Next Artwork' action and finishes
@@ -29,7 +29,7 @@ public class NextArtworkActivity extends Activity {
     @Override
     protected void onCreate(@Nullable final Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Provider.nextArtwork(this);
+        ProviderManager.getInstance(this).nextArtwork();
         finish();
     }
 }

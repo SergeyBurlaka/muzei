@@ -40,6 +40,7 @@ import com.google.android.apps.muzei.room.Artwork;
 import com.google.android.apps.muzei.room.MuzeiDatabase;
 import com.google.android.apps.muzei.room.Provider;
 import com.google.android.apps.muzei.room.converter.UserCommandTypeConverter;
+import com.google.android.apps.muzei.sync.ProviderManager;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -253,7 +254,7 @@ public class MuzeiProvider extends ContentProvider {
         row.add(MuzeiContract.Sources.COLUMN_NAME_DESCRIPTION, provider.getDescriptionBlocking());
         row.add(MuzeiContract.Sources.COLUMN_NAME_WANTS_NETWORK_AVAILABLE, false);
         row.add(MuzeiContract.Sources.COLUMN_NAME_SUPPORTS_NEXT_ARTWORK_COMMAND,
-                provider.getSupportsNextArtworkBlocking());
+                ProviderManager.getInstance(context).getSupportsNextArtworkBlocking());
         row.add(MuzeiContract.Sources.COLUMN_NAME_COMMANDS,
                 UserCommandTypeConverter.commandsListToString(artwork.getCommandsBlocking(context)));
 

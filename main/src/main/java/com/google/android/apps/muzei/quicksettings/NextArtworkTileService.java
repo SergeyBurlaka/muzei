@@ -13,14 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.google.android.apps.muzei.quicksettings;
 
 import android.app.WallpaperManager;
 import android.arch.lifecycle.Lifecycle;
 import android.arch.lifecycle.LifecycleOwner;
 import android.arch.lifecycle.LifecycleRegistry;
-import android.arch.lifecycle.LiveData;
 import android.arch.lifecycle.Observer;
 import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
@@ -38,6 +36,7 @@ import com.google.android.apps.muzei.MuzeiWallpaperService;
 import com.google.android.apps.muzei.event.WallpaperActiveStateChangedEvent;
 import com.google.android.apps.muzei.room.MuzeiDatabase;
 import com.google.android.apps.muzei.room.Provider;
+import com.google.android.apps.muzei.sync.ProviderManager;
 import com.google.firebase.analytics.FirebaseAnalytics;
 
 import net.nurik.roman.muzei.R;
@@ -53,7 +52,6 @@ import org.greenrobot.eventbus.Subscribe;
 @RequiresApi(api = Build.VERSION_CODES.N)
 public class NextArtworkTileService extends TileService implements LifecycleOwner {
     private LifecycleRegistry mLifecycle;
-    private LiveData<Provider> mProviderLiveData;
     private boolean mWallpaperActive = false;
 
     @Override
@@ -77,14 +75,13 @@ public class NextArtworkTileService extends TileService implements LifecycleOwne
     @Override
     public void onStartListening() {
         // Start listening for provider changes
-        mProviderLiveData = MuzeiDatabase.getInstance(this).providerDao().getCurrentProvider(this);
-        mProviderLiveData.observe(this, new Observer<Provider>() {
-            @Override
-            public void onChanged(@Nullable final Provider provider) {
-                updateTile(provider);
-            }
-        });
-
+        MuzeiDatabase.getInstance(this).providerDao().getCurrentProvider(this)
+                .observe(this, new Observer<Provider>() {
+                    @Override
+                    public void onChanged(@Nullable final Provider provider) {
+                        updateTile();
+                    }
+                });
         // Check if the wallpaper is currently active
         EventBus.getDefault().register(this);
         WallpaperActiveStateChangedEvent e = EventBus.getDefault().getStickyEvent(
@@ -96,10 +93,10 @@ public class NextArtworkTileService extends TileService implements LifecycleOwne
     @Subscribe
     public void onEventMainThread(final WallpaperActiveStateChangedEvent e) {
         mWallpaperActive = e != null && e.isActive();
-        updateTile(mProviderLiveData.getValue());
+        updateTile();
     }
 
-    private void updateTile(final Provider provider) {
+    private void updateTile() {
         final Tile tile = getQsTile();
         if (tile == null) {
             // We're outside of the onStartListening / onStopListening window
@@ -114,10 +111,7 @@ public class NextArtworkTileService extends TileService implements LifecycleOwne
             tile.updateTile();
             return;
         }
-        if (provider == null) {
-            return;
-        }
-        provider.getSupportsNextArtwork(new Provider.SupportNextArtworkCallback() {
+        ProviderManager.getInstance(this).getSupportsNextArtwork(new ProviderManager.SupportNextArtworkCallback() {
             @Override
             public void onCallback(final boolean supportsNextArtwork) {
                 if (!mLifecycle.getCurrentState().isAtLeast(Lifecycle.State.STARTED)) {
@@ -137,7 +131,6 @@ public class NextArtworkTileService extends TileService implements LifecycleOwne
                 tile.updateTile();
             }
         });
-
     }
 
     @Override
@@ -152,7 +145,7 @@ public class NextArtworkTileService extends TileService implements LifecycleOwne
             FirebaseAnalytics.getInstance(NextArtworkTileService.this).logEvent(
                     "tile_next_artwork_click", null);
             // Active means we send the 'Next Artwork' command
-            Provider.nextArtwork(this);
+            ProviderManager.getInstance(this).nextArtwork();
         } else {
             // Inactive means we attempt to activate Muzei
             unlockAndRun(new Runnable() {

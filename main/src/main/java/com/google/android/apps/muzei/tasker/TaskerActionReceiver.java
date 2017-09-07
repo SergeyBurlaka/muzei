@@ -20,7 +20,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 
-import com.google.android.apps.muzei.room.Provider;
+import com.google.android.apps.muzei.sync.ProviderManager;
 
 import static com.twofortyfouram.locale.api.Intent.ACTION_FIRE_SETTING;
 
@@ -32,7 +32,7 @@ public class TaskerActionReceiver extends BroadcastReceiver {
     public void onReceive(final Context context, final Intent intent) {
         if (intent != null
                 && ACTION_FIRE_SETTING.equals(intent.getAction())) {
-            Provider.nextArtwork(context);
+            ProviderManager.getInstance(context).nextArtwork();
         }
     }
 }
