@@ -669,8 +669,8 @@ public class ChooseSourceFragment extends Fragment {
         if (source.rootView == null) {
             return;
         }
-        Provider connection = new Provider(getContext(), source.componentName);
-        connection.getDescription(new Provider.DescriptionCallback() {
+        ProviderManager providerManager = ProviderManager.getInstance(getContext());
+        providerManager.getDescription(source.componentName, new ProviderManager.DescriptionCallback() {
             @Override
             public void onCallback(@NonNull final String description) {
                 ((TextView) source.rootView.findViewById(R.id.source_status)).setText(description);

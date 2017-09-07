@@ -25,12 +25,19 @@ import android.arch.lifecycle.LiveData;
 import android.arch.lifecycle.Observer;
 import android.arch.lifecycle.OnLifecycleEvent;
 import android.content.ComponentName;
+import android.content.ContentProviderClient;
 import android.content.Context;
+import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Bundle;
+import android.os.RemoteException;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.util.Log;
 
 import com.firebase.jobdispatcher.FirebaseJobDispatcher;
 import com.firebase.jobdispatcher.GooglePlayDriver;
+import com.google.android.apps.muzei.api.provider.MuzeiArtProvider;
 import com.google.android.apps.muzei.room.MuzeiDatabase;
 import com.google.android.apps.muzei.room.Provider;
 import com.google.android.apps.muzei.room.ProviderEntity;
@@ -38,10 +45,15 @@ import com.google.android.apps.muzei.room.ProviderEntity;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
+import static com.google.android.apps.muzei.api.internal.ProtocolConstants.KEY_DESCRIPTION;
+import static com.google.android.apps.muzei.api.internal.ProtocolConstants.METHOD_GET_DESCRIPTION;
+
 /**
  * Manager which controls
  */
 public class ProviderManager implements LifecycleObserver, Observer<Provider>, LifecycleOwner {
+    private static final String TAG = "ProviderManager";
+
     private static ProviderManager sInstance;
 
     public static ProviderManager getInstance(Context context) {
@@ -111,6 +123,52 @@ public class ProviderManager implements LifecycleObserver, Observer<Provider>, L
                 }
             }
         }.executeOnExecutor(mExecutor);
+    }
+
+    public interface DescriptionCallback {
+        void onCallback(@NonNull String description);
+    }
+
+    @SuppressLint("StaticFieldLeak")
+    public void getDescription(final ComponentName provider, final DescriptionCallback callback) {
+        new AsyncTask<Void, Void, String>() {
+            @Override
+            protected String doInBackground(final Void... voids) {
+                return getDescriptionBlocking(provider);
+            }
+
+            @Override
+            protected void onPostExecute(final String description) {
+                callback.onCallback(description);
+            }
+        }.executeOnExecutor(mExecutor);
+    }
+
+    @NonNull
+    public String getCurrentDescription() {
+        Provider provider = MuzeiDatabase.getInstance(mContext).providerDao()
+                .getCurrentProviderBlocking(mContext);
+        return provider != null
+                ? getDescriptionBlocking(provider.componentName)
+                : "";
+    }
+
+    @NonNull
+    private String getDescriptionBlocking(ComponentName provider) {
+        Uri contentUri = MuzeiArtProvider.getContentUri(mContext, provider);
+        try (ContentProviderClient client = mContext.getContentResolver()
+                .acquireUnstableContentProviderClient(contentUri)) {
+            if (client == null) {
+                return "";
+            }
+            try {
+                Bundle result = client.call(METHOD_GET_DESCRIPTION, null, null);
+                return result != null ? result.getString(KEY_DESCRIPTION, "") : "";
+            } catch (RemoteException e) {
+                Log.i(TAG, "Provider " + provider + " crashed while retrieving description", e);
+                return "";
+            }
+        }
     }
 
     public interface SupportNextArtworkCallback {

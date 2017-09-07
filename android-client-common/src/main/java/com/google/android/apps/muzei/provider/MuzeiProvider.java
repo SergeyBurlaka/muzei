@@ -245,16 +245,17 @@ public class MuzeiProvider extends ContentProvider {
         }
         MatrixCursor c = new MatrixCursor(projection);
         Artwork artwork = MuzeiDatabase.getInstance(context).artworkDao().getCurrentArtworkBlocking();
-        Provider provider = new Provider(context, artwork.sourceComponentName);
+        ProviderManager providerManager = ProviderManager.getInstance(context);
 
         MatrixCursor.RowBuilder row = c.newRow();
         row.add(BaseColumns._ID, 1L);
         row.add(MuzeiContract.Sources.COLUMN_NAME_COMPONENT_NAME, artwork.sourceComponentName);
         row.add(MuzeiContract.Sources.COLUMN_NAME_IS_SELECTED, true);
-        row.add(MuzeiContract.Sources.COLUMN_NAME_DESCRIPTION, provider.getDescriptionBlocking());
+        row.add(MuzeiContract.Sources.COLUMN_NAME_DESCRIPTION,
+                providerManager.getCurrentDescription());
         row.add(MuzeiContract.Sources.COLUMN_NAME_WANTS_NETWORK_AVAILABLE, false);
         row.add(MuzeiContract.Sources.COLUMN_NAME_SUPPORTS_NEXT_ARTWORK_COMMAND,
-                ProviderManager.getInstance(context).getSupportsNextArtworkBlocking());
+                providerManager.getSupportsNextArtworkBlocking());
         row.add(MuzeiContract.Sources.COLUMN_NAME_COMMANDS,
                 UserCommandTypeConverter.commandsListToString(artwork.getCommandsBlocking(context)));
 

@@ -16,40 +16,22 @@
 
 package com.google.android.apps.muzei.room;
 
-import android.annotation.SuppressLint;
 import android.content.ComponentName;
-import android.content.ContentProviderClient;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.pm.ProviderInfo;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
-import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.RemoteException;
 import android.support.annotation.ColorInt;
 import android.support.annotation.NonNull;
 import android.text.TextUtils;
-import android.util.Log;
-
-import com.google.android.apps.muzei.api.provider.MuzeiArtProvider;
-
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
-
-import static com.google.android.apps.muzei.api.internal.ProtocolConstants.KEY_DESCRIPTION;
-import static com.google.android.apps.muzei.api.internal.ProtocolConstants.METHOD_GET_DESCRIPTION;
 
 /**
  * Encapsulates the connection and information about a Provider
  */
 public class Provider extends ProviderEntity {
-    private static final String TAG = "ProviderConnection";
-
     private final Context mContext;
-    private final Uri mContentUri;
-    private final Executor mExecutor = Executors.newCachedThreadPool();
 
     private ProviderInfo mProviderInfo;
     private String mLabel;
@@ -67,7 +49,6 @@ public class Provider extends ProviderEntity {
     public Provider(Context context, @NonNull ComponentName provider) {
         super(provider);
         mContext = context.getApplicationContext();
-        mContentUri = MuzeiArtProvider.getContentUri(context, provider);
     }
 
     @NonNull
@@ -162,44 +143,5 @@ public class Provider extends ProviderEntity {
             }
         }
         return mSetupActivity;
-    }
-
-    private ContentProviderClient getContentProviderClient() {
-        return mContext.getContentResolver().acquireUnstableContentProviderClient(mContentUri);
-    }
-
-    public interface DescriptionCallback {
-        void onCallback(@NonNull String description);
-    }
-
-    @SuppressLint("StaticFieldLeak")
-    public void getDescription(final DescriptionCallback callback) {
-        new AsyncTask<Void, Void, String>() {
-            @Override
-            protected String doInBackground(final Void... voids) {
-                return getDescriptionBlocking();
-            }
-
-            @Override
-            protected void onPostExecute(final String description) {
-                callback.onCallback(description);
-            }
-        }.executeOnExecutor(mExecutor);
-    }
-
-    @NonNull
-    public String getDescriptionBlocking() {
-        try (ContentProviderClient client = getContentProviderClient()) {
-            if (client == null) {
-                return "";
-            }
-            try {
-                Bundle result = client.call(METHOD_GET_DESCRIPTION, null, null);
-                return result != null ? result.getString(KEY_DESCRIPTION, "") : "";
-            } catch (RemoteException e) {
-                Log.i(TAG, "Provider " + componentName + " crashed while retrieving description", e);
-                return "";
-            }
-        }
     }
 }
