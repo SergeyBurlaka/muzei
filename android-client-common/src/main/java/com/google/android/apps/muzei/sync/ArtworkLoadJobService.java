@@ -38,6 +38,8 @@ import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Random;
 
+import static com.google.android.apps.muzei.api.internal.ProtocolConstants.METHOD_REQUEST_LOAD;
+
 /**
  * Job responsible for loading artwork from a {@link MuzeiArtProvider} and inserting it into
  * the {@link MuzeiDatabase}.
@@ -79,10 +81,17 @@ public class ArtworkLoadJobService extends SimpleJobService {
                         provider.recentArtworkIds.addLast(provider.maxLoadedArtworkId);
                         reduceSize(provider.recentArtworkIds, getBestMaxSize(allArtwork.getCount()));
                         database.providerDao().update(provider);
+                        // If we just loaded the last new artwork, we should request that they load another
+                        // in preparation for the next load
+                        if (!newArtwork.moveToNext()) {
+                            client.call(METHOD_REQUEST_LOAD, null, null);
+                        }
                         return JobService.RESULT_SUCCESS;
                     }
                 }
-                // No new artwork, is there any artwork at all?
+                // No new artwork, request that they load another in preparation for the next load
+                client.call(METHOD_REQUEST_LOAD, null, null);
+                // Is there any artwork at all?
                 if (allArtwork.getCount() == 0) {
                     Log.w(TAG, "Unable to find any artwork for " + provider.componentName);
                     return JobService.RESULT_FAIL_NORETRY;
