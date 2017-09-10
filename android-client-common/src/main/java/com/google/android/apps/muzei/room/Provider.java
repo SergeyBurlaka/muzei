@@ -23,6 +23,9 @@ import android.content.ComponentName;
 import android.support.annotation.NonNull;
 
 import com.google.android.apps.muzei.room.converter.ComponentNameTypeConverter;
+import com.google.android.apps.muzei.room.converter.ArrayDequeLongTypeConverter;
+
+import java.util.ArrayDeque;
 
 /**
  * Provider information's representation in Room
@@ -33,6 +36,12 @@ public class Provider {
     @PrimaryKey
     @NonNull
     public ComponentName componentName;
+
+    public long maxLoadedArtworkId;
+
+    @TypeConverters({ArrayDequeLongTypeConverter.class})
+    @NonNull
+    public ArrayDeque<Long> recentArtworkIds = new ArrayDeque<>();
 
     public Provider(@NonNull ComponentName componentName) {
         this.componentName = componentName;

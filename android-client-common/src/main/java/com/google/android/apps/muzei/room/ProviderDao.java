@@ -20,21 +20,25 @@ import android.arch.lifecycle.LiveData;
 import android.arch.persistence.room.Dao;
 import android.arch.persistence.room.Insert;
 import android.arch.persistence.room.Query;
+import android.arch.persistence.room.Update;
 
 /**
  * Dao for Providers
  */
 @Dao
-public abstract class ProviderDao {
+public interface ProviderDao {
     @Query("SELECT * FROM provider")
-    public abstract LiveData<Provider> getCurrentProvider();
+    LiveData<Provider> getCurrentProvider();
 
     @Query("SELECT * FROM provider")
-    public abstract Provider getCurrentProviderBlocking();
+    Provider getCurrentProviderBlocking();
 
     @Insert
-    public abstract void insert(Provider provider);
+    void insert(Provider provider);
+
+    @Update
+    void update(final Provider provider);
 
     @Query("DELETE FROM provider")
-    public abstract void deleteAll();
+    void deleteAll();
 }

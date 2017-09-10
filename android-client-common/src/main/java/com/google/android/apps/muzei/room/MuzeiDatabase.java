@@ -224,7 +224,9 @@ public abstract class MuzeiDatabase extends RoomDatabase {
         public void migrate(@NonNull final SupportSQLiteDatabase database) {
             // Handle Provider
             database.execSQL("CREATE TABLE provider ("
-                    + "componentName TEXT PRIMARY KEY NOT NULL);");
+                    + "componentName TEXT PRIMARY KEY NOT NULL,"
+                    + "maxLoadedArtworkId INTEGER NOT NULL,"
+                    + "recentArtworkIds TEXT NOT NULL)");
 
             // Handle Artwork
             database.execSQL("DROP TABLE artwork");
@@ -238,7 +240,7 @@ public abstract class MuzeiDatabase extends RoomDatabase {
                     + "token TEXT,"
                     + "metaFont TEXT NOT NULL)");
 
-            // Delete previously cached artwork - this is now by providers
+            // Delete previously cached artwork - providers now cache their own artwork
             File artworkDirectory = new File(mContext.getFilesDir(), "artwork");
             //noinspection ResultOfMethodCallIgnored
             artworkDirectory.delete();

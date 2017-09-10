@@ -22,18 +22,21 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
+import android.provider.BaseColumns;
+import android.support.annotation.Nullable;
 import android.util.Log;
 
 import com.firebase.jobdispatcher.JobParameters;
 import com.firebase.jobdispatcher.JobService;
 import com.firebase.jobdispatcher.SimpleJobService;
 import com.google.android.apps.muzei.api.provider.MuzeiArtProvider;
-import com.google.android.apps.muzei.api.provider.ProviderContract;
 import com.google.android.apps.muzei.room.Artwork;
 import com.google.android.apps.muzei.room.MuzeiDatabase;
 import com.google.android.apps.muzei.room.Provider;
 
 import java.io.IOException;
+import java.util.ArrayDeque;
+import java.util.Random;
 
 /**
  * Job responsible for loading artwork from a {@link MuzeiArtProvider} and inserting it into
@@ -41,6 +44,7 @@ import java.io.IOException;
  */
 public class ArtworkLoadJobService extends SimpleJobService {
     private static final String TAG = "ArtworkLoadJobService";
+    private static final int MAX_PENDING_ARTWORK = 100;
 
     @Override
     public int onRunJob(final JobParameters job) {
@@ -50,40 +54,109 @@ public class ArtworkLoadJobService extends SimpleJobService {
         if (provider == null) {
             return JobService.RESULT_FAIL_NORETRY;
         }
-
         Uri contentUri = MuzeiArtProvider.getContentUri(this, provider.componentName);
         try (ContentProviderClient client = getContentResolver()
                 .acquireUnstableContentProviderClient(contentUri)) {
             if (client == null) {
                 return JobService.RESULT_FAIL_NORETRY;
             }
-            // TODO add selection and selection args
-            try (Cursor data = client.query(contentUri,
-                    null, null, null,
-                    ProviderContract.Artwork.DATE_ADDED + " DESC")) {
-                if (data == null || !data.moveToNext()) {
-                    return JobService.RESULT_FAIL_RETRY;
+            try (Cursor newArtwork = client.query(contentUri,
+                    null, "_id > ?",
+                    new String[]{Long.toString(provider.maxLoadedArtworkId)},
+                    null);
+                 Cursor allArtwork = client.query(contentUri,
+                         null, null, null, null)) {
+                if (newArtwork == null || allArtwork == null) {
+                    return JobService.RESULT_FAIL_NORETRY;
                 }
-                com.google.android.apps.muzei.api.provider.Artwork providerArtwork =
-                        com.google.android.apps.muzei.api.provider.Artwork.fromCursor(data);
-                Uri artworkUri = ContentUris.withAppendedId(contentUri, providerArtwork.getId());
-                try (ParcelFileDescriptor ignored = client.openFile(artworkUri, "r")) {
-                    Artwork artwork = new Artwork();
-                    artwork.sourceComponentName = provider.componentName;
-                    artwork.imageUri = artworkUri;
-                    artwork.title = providerArtwork.getTitle();
-                    artwork.byline = providerArtwork.getByline();
-                    artwork.attribution = providerArtwork.getAttribution();
-                    database.artworkDao().insert(artwork);
-                    return JobService.RESULT_SUCCESS;
-                } catch (IOException e) {
-                    Log.w(TAG, "Unable to preload artwork " + artworkUri, e);
-                    return JobService.RESULT_FAIL_RETRY;
+                // First prioritize new artwork
+                while (newArtwork.moveToNext()) {
+                    Artwork validArtwork = checkForValidArtwork(client, contentUri, newArtwork);
+                    if (validArtwork != null) {
+                        validArtwork.sourceComponentName = provider.componentName;
+                        database.artworkDao().insert(validArtwork);
+                        provider.maxLoadedArtworkId = newArtwork.getLong(newArtwork.getColumnIndex(BaseColumns._ID));
+                        provider.recentArtworkIds.addLast(provider.maxLoadedArtworkId);
+                        reduceSize(provider.recentArtworkIds, getBestMaxSize(allArtwork.getCount()));
+                        database.providerDao().update(provider);
+                        return JobService.RESULT_SUCCESS;
+                    }
+                }
+                // No new artwork, is there any artwork at all?
+                if (allArtwork.getCount() == 0) {
+                    Log.w(TAG, "Unable to find any artwork for " + provider.componentName);
+                    return JobService.RESULT_FAIL_NORETRY;
+                }
+                // Okay so there's at least some artwork.
+                // Is it just the one artwork we're already showing?
+                if (allArtwork.getCount() == 1 && allArtwork.moveToFirst()) {
+                    long artworkId = allArtwork.getLong(allArtwork.getColumnIndex(BaseColumns._ID));
+                    Uri artworkUri = ContentUris.withAppendedId(contentUri, artworkId);
+                    Artwork currentArtwork = database.artworkDao().getCurrentArtworkBlocking();
+                    if (currentArtwork != null && artworkUri.equals(currentArtwork.imageUri)) {
+                        Log.i(TAG, "Unable to find any other artwork for " + provider.componentName);
+                        return JobService.RESULT_FAIL_NORETRY;
+                    }
+                }
+                // At this point, we know there must be some artwork that isn't the current artwork
+                // We want to avoid showing artwork we've recently loaded, but don't want
+                // to exclude *all* of the current artwork, so we cut down the recent list's size
+                // to avoid issues where the provider has deleted a large percentage of their artwork
+                reduceSize(provider.recentArtworkIds, allArtwork.getCount() / 2);
+                // Now find a random piece of artwork that isn't in our previous list
+                Random random = new Random();
+                while (true) {
+                    int position = random.nextInt(allArtwork.getCount());
+                    if (allArtwork.moveToPosition((position))) {
+                        long artworkId = allArtwork.getLong(allArtwork.getColumnIndex(BaseColumns._ID));
+                        if (provider.recentArtworkIds.contains(artworkId)) {
+                            // Skip previously selected artwork
+                            continue;
+                        }
+                        Artwork validArtwork = checkForValidArtwork(client, contentUri, allArtwork);
+                        if (validArtwork != null) {
+                            validArtwork.sourceComponentName = provider.componentName;
+                            database.artworkDao().insert(validArtwork);
+                            provider.recentArtworkIds.addLast(artworkId);
+                            reduceSize(provider.recentArtworkIds, getBestMaxSize(allArtwork.getCount()));
+                            database.providerDao().update(provider);
+                            return JobService.RESULT_SUCCESS;
+                        }
+                    }
                 }
             } catch (RemoteException e) {
                 Log.i(TAG, "Provider " + provider.componentName + " crashed while retrieving artwork", e);
-                return JobService.RESULT_FAIL_RETRY;
+                return JobService.RESULT_FAIL_NORETRY;
             }
+        }
+    }
+
+    @Nullable
+    private Artwork checkForValidArtwork(ContentProviderClient client, Uri contentUri, Cursor data)
+            throws RemoteException {
+        com.google.android.apps.muzei.api.provider.Artwork providerArtwork =
+                com.google.android.apps.muzei.api.provider.Artwork.fromCursor(data);
+        Uri artworkUri = ContentUris.withAppendedId(contentUri, providerArtwork.getId());
+        try (ParcelFileDescriptor ignored = client.openFile(artworkUri, "r")) {
+            Artwork artwork = new Artwork();
+            artwork.imageUri = artworkUri;
+            artwork.title = providerArtwork.getTitle();
+            artwork.byline = providerArtwork.getByline();
+            artwork.attribution = providerArtwork.getAttribution();
+            return artwork;
+        } catch (IOException e) {
+            Log.w(TAG, "Unable to preload artwork " + artworkUri, e);
+        }
+        return null;
+    }
+
+    private int getBestMaxSize(int count) {
+        return Math.min(Math.max(count / 2, 1), MAX_PENDING_ARTWORK);
+    }
+
+    private void reduceSize(ArrayDeque<Long> deque, int maxSize) {
+        while (deque.size() > maxSize) {
+            deque.removeFirst();
         }
     }
 }
