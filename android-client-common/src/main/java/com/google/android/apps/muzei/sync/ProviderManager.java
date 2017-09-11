@@ -25,7 +25,6 @@ import android.arch.lifecycle.LiveData;
 import android.arch.lifecycle.Observer;
 import android.arch.lifecycle.OnLifecycleEvent;
 import android.content.ComponentName;
-import android.content.ContentProviderClient;
 import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
@@ -41,6 +40,7 @@ import com.firebase.jobdispatcher.GooglePlayDriver;
 import com.google.android.apps.muzei.api.provider.MuzeiArtProvider;
 import com.google.android.apps.muzei.room.MuzeiDatabase;
 import com.google.android.apps.muzei.room.Provider;
+import com.google.android.apps.muzei.util.ContentProviderClientCompat;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -156,8 +156,8 @@ public class ProviderManager implements LifecycleObserver, Observer<Provider>, L
     @NonNull
     private String getDescriptionBlocking(ComponentName provider) {
         Uri contentUri = MuzeiArtProvider.getContentUri(mContext, provider);
-        try (ContentProviderClient client = mContext.getContentResolver()
-                .acquireUnstableContentProviderClient(contentUri)) {
+        try (ContentProviderClientCompat client = ContentProviderClientCompat
+                .getClient(mContext, contentUri)) {
             if (client == null) {
                 return "";
             }
@@ -198,8 +198,8 @@ public class ProviderManager implements LifecycleObserver, Observer<Provider>, L
             return false;
         }
         Uri contentUri = MuzeiArtProvider.getContentUri(mContext, provider.componentName);
-        try (ContentProviderClient client = mContext.getContentResolver()
-                .acquireUnstableContentProviderClient(contentUri)) {
+        try (ContentProviderClientCompat client = ContentProviderClientCompat
+                .getClient(mContext, contentUri)) {
             if (client == null) {
                 return false;
             }

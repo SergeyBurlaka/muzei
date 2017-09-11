@@ -23,7 +23,6 @@ import android.arch.persistence.room.Index;
 import android.arch.persistence.room.PrimaryKey;
 import android.arch.persistence.room.TypeConverters;
 import android.content.ComponentName;
-import android.content.ContentProviderClient;
 import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.Context;
@@ -41,6 +40,7 @@ import com.google.android.apps.muzei.api.UserCommand;
 import com.google.android.apps.muzei.room.converter.ComponentNameTypeConverter;
 import com.google.android.apps.muzei.room.converter.UriTypeConverter;
 import com.google.android.apps.muzei.room.converter.UserCommandTypeConverter;
+import com.google.android.apps.muzei.util.ContentProviderClientCompat;
 
 import net.nurik.roman.muzei.androidclientcommon.R;
 
@@ -105,16 +105,12 @@ public class Artwork {
                 .authority(MuzeiContract.AUTHORITY), id).build();
     }
 
-    private ContentProviderClient getContentProviderClient(Context context) {
-        return context.getContentResolver().acquireUnstableContentProviderClient(imageUri);
-    }
-
     @SuppressLint("StaticFieldLeak")
     public void openArtworkInfo(final Context context) {
         new AsyncTask<Void, Void, Boolean>() {
             @Override
             protected Boolean doInBackground(final Void... voids) {
-                try (ContentProviderClient client = getContentProviderClient(context)) {
+                try (ContentProviderClientCompat client = ContentProviderClientCompat.getClient(context, imageUri)) {
                     if (client == null) {
                         return false;
                     }
@@ -160,7 +156,7 @@ public class Artwork {
     }
 
     public List<UserCommand> getCommandsBlocking(Context context) {
-        try (ContentProviderClient client = getContentProviderClient(context)) {
+        try (ContentProviderClientCompat client = ContentProviderClientCompat.getClient(context, imageUri)) {
             ArrayList<UserCommand> commands = new ArrayList<>();
             if (client == null) {
                 return commands;
@@ -183,7 +179,7 @@ public class Artwork {
         new AsyncTask<Void, Void, Void>() {
             @Override
             protected Void doInBackground(final Void... voids) {
-                try (ContentProviderClient client = getContentProviderClient(context)) {
+                try (ContentProviderClientCompat client = ContentProviderClientCompat.getClient(context, imageUri)) {
                     if (client == null) {
                         return null;
                     }

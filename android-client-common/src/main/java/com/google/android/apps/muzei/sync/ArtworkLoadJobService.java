@@ -16,7 +16,6 @@
 
 package com.google.android.apps.muzei.sync;
 
-import android.content.ContentProviderClient;
 import android.content.ContentUris;
 import android.database.Cursor;
 import android.net.Uri;
@@ -33,6 +32,7 @@ import com.google.android.apps.muzei.api.provider.MuzeiArtProvider;
 import com.google.android.apps.muzei.room.Artwork;
 import com.google.android.apps.muzei.room.MuzeiDatabase;
 import com.google.android.apps.muzei.room.Provider;
+import com.google.android.apps.muzei.util.ContentProviderClientCompat;
 
 import java.io.IOException;
 import java.util.ArrayDeque;
@@ -57,8 +57,8 @@ public class ArtworkLoadJobService extends SimpleJobService {
             return JobService.RESULT_FAIL_NORETRY;
         }
         Uri contentUri = MuzeiArtProvider.getContentUri(this, provider.componentName);
-        try (ContentProviderClient client = getContentResolver()
-                .acquireUnstableContentProviderClient(contentUri)) {
+        try (ContentProviderClientCompat client = ContentProviderClientCompat
+                .getClient(this, contentUri)) {
             if (client == null) {
                 return JobService.RESULT_FAIL_NORETRY;
             }
@@ -141,12 +141,12 @@ public class ArtworkLoadJobService extends SimpleJobService {
     }
 
     @Nullable
-    private Artwork checkForValidArtwork(ContentProviderClient client, Uri contentUri, Cursor data)
+    private Artwork checkForValidArtwork(ContentProviderClientCompat client, Uri contentUri, Cursor data)
             throws RemoteException {
         com.google.android.apps.muzei.api.provider.Artwork providerArtwork =
                 com.google.android.apps.muzei.api.provider.Artwork.fromCursor(data);
         Uri artworkUri = ContentUris.withAppendedId(contentUri, providerArtwork.getId());
-        try (ParcelFileDescriptor ignored = client.openFile(artworkUri, "r")) {
+        try (ParcelFileDescriptor ignored = client.openFile(artworkUri)) {
             Artwork artwork = new Artwork();
             artwork.imageUri = artworkUri;
             artwork.title = providerArtwork.getTitle();
