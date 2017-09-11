@@ -19,6 +19,7 @@ package com.google.android.apps.muzei.sync;
 import android.content.ContentUris;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
 import android.provider.BaseColumns;
@@ -28,6 +29,7 @@ import android.util.Log;
 import com.firebase.jobdispatcher.JobParameters;
 import com.firebase.jobdispatcher.JobService;
 import com.firebase.jobdispatcher.SimpleJobService;
+import com.google.android.apps.muzei.api.internal.RecentArtworkIdsConverter;
 import com.google.android.apps.muzei.api.provider.MuzeiArtProvider;
 import com.google.android.apps.muzei.room.Artwork;
 import com.google.android.apps.muzei.room.MuzeiDatabase;
@@ -38,6 +40,10 @@ import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Random;
 
+import static com.google.android.apps.muzei.api.internal.ProtocolConstants.KEY_MAX_LOADED_ARTWORK_ID;
+import static com.google.android.apps.muzei.api.internal.ProtocolConstants.KEY_RECENT_ARTWORK_IDS;
+import static com.google.android.apps.muzei.api.internal.ProtocolConstants.METHOD_GET_LOAD_INFO;
+import static com.google.android.apps.muzei.api.internal.ProtocolConstants.METHOD_MARK_ARTWORK_LOADED;
 import static com.google.android.apps.muzei.api.internal.ProtocolConstants.METHOD_REQUEST_LOAD;
 
 /**
@@ -46,7 +52,6 @@ import static com.google.android.apps.muzei.api.internal.ProtocolConstants.METHO
  */
 public class ArtworkLoadJobService extends SimpleJobService {
     private static final String TAG = "ArtworkLoadJobService";
-    private static final int MAX_PENDING_ARTWORK = 100;
 
     @Override
     public int onRunJob(final JobParameters job) {
@@ -62,9 +67,16 @@ public class ArtworkLoadJobService extends SimpleJobService {
             if (client == null) {
                 return JobService.RESULT_FAIL_NORETRY;
             }
+            Bundle result = client.call(METHOD_GET_LOAD_INFO, null, null);
+            if (result == null) {
+                return JobService.RESULT_FAIL_NORETRY;
+            }
+            long maxLoadedArtworkId = result.getLong(KEY_MAX_LOADED_ARTWORK_ID, 0L);
+            ArrayDeque<Long> recentArtworkIds = RecentArtworkIdsConverter.fromString(
+                    result.getString(KEY_RECENT_ARTWORK_IDS, ""));
             try (Cursor newArtwork = client.query(contentUri,
                     null, "_id > ?",
-                    new String[]{Long.toString(provider.maxLoadedArtworkId)},
+                    new String[]{Long.toString(maxLoadedArtworkId)},
                     null);
                  Cursor allArtwork = client.query(contentUri,
                          null, null, null, null)) {
@@ -77,10 +89,7 @@ public class ArtworkLoadJobService extends SimpleJobService {
                     if (validArtwork != null) {
                         validArtwork.sourceComponentName = provider.componentName;
                         database.artworkDao().insert(validArtwork);
-                        provider.maxLoadedArtworkId = newArtwork.getLong(newArtwork.getColumnIndex(BaseColumns._ID));
-                        provider.recentArtworkIds.addLast(provider.maxLoadedArtworkId);
-                        reduceSize(provider.recentArtworkIds, getBestMaxSize(allArtwork.getCount()));
-                        database.providerDao().update(provider);
+                        client.call(METHOD_MARK_ARTWORK_LOADED, validArtwork.imageUri.toString(), null);
                         // If we just loaded the last new artwork, we should request that they load another
                         // in preparation for the next load
                         if (!newArtwork.moveToNext()) {
@@ -111,14 +120,16 @@ public class ArtworkLoadJobService extends SimpleJobService {
                 // We want to avoid showing artwork we've recently loaded, but don't want
                 // to exclude *all* of the current artwork, so we cut down the recent list's size
                 // to avoid issues where the provider has deleted a large percentage of their artwork
-                reduceSize(provider.recentArtworkIds, allArtwork.getCount() / 2);
+                while (recentArtworkIds.size() > allArtwork.getCount() / 2) {
+                    recentArtworkIds.removeFirst();
+                }
                 // Now find a random piece of artwork that isn't in our previous list
                 Random random = new Random();
                 while (true) {
                     int position = random.nextInt(allArtwork.getCount());
                     if (allArtwork.moveToPosition((position))) {
                         long artworkId = allArtwork.getLong(allArtwork.getColumnIndex(BaseColumns._ID));
-                        if (provider.recentArtworkIds.contains(artworkId)) {
+                        if (recentArtworkIds.contains(artworkId)) {
                             // Skip previously selected artwork
                             continue;
                         }
@@ -126,17 +137,15 @@ public class ArtworkLoadJobService extends SimpleJobService {
                         if (validArtwork != null) {
                             validArtwork.sourceComponentName = provider.componentName;
                             database.artworkDao().insert(validArtwork);
-                            provider.recentArtworkIds.addLast(artworkId);
-                            reduceSize(provider.recentArtworkIds, getBestMaxSize(allArtwork.getCount()));
-                            database.providerDao().update(provider);
+                            client.call(METHOD_MARK_ARTWORK_LOADED, validArtwork.imageUri.toString(), null);
                             return JobService.RESULT_SUCCESS;
                         }
                     }
                 }
-            } catch (RemoteException e) {
-                Log.i(TAG, "Provider " + provider.componentName + " crashed while retrieving artwork", e);
-                return JobService.RESULT_FAIL_NORETRY;
             }
+        } catch (RemoteException e) {
+            Log.i(TAG, "Provider " + provider.componentName + " crashed while retrieving artwork", e);
+            return JobService.RESULT_FAIL_NORETRY;
         }
     }
 
@@ -157,15 +166,5 @@ public class ArtworkLoadJobService extends SimpleJobService {
             Log.w(TAG, "Unable to preload artwork " + artworkUri, e);
         }
         return null;
-    }
-
-    private int getBestMaxSize(int count) {
-        return Math.min(Math.max(count / 2, 1), MAX_PENDING_ARTWORK);
-    }
-
-    private void reduceSize(ArrayDeque<Long> deque, int maxSize) {
-        while (deque.size() > maxSize) {
-            deque.removeFirst();
-        }
     }
 }

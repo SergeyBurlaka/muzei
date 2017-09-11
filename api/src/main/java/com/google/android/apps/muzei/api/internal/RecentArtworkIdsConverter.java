@@ -14,21 +14,17 @@
  * limitations under the License.
  */
 
-package com.google.android.apps.muzei.room.converter;
+package com.google.android.apps.muzei.api.internal;
 
-import android.arch.persistence.room.TypeConverter;
 import android.support.annotation.NonNull;
 import android.text.TextUtils;
 
 import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
 
 /**
- * Converts a LinkedHashSet of {@link Long}s into and from a persisted value
+ * Converts a ArrayDeque of {@link Long}s into and from a persisted value
  */
-public class ArrayDequeLongTypeConverter {
-    @TypeConverter
+public class RecentArtworkIdsConverter {
     @NonNull
     public static ArrayDeque<Long> fromString(String idsString) {
         ArrayDeque<Long> ids = new ArrayDeque<>();
@@ -40,7 +36,6 @@ public class ArrayDequeLongTypeConverter {
         return ids;
     }
 
-    @TypeConverter
     @NonNull
     public static String idsListToString(ArrayDeque<Long> ids) {
         return TextUtils.join(",", ids);

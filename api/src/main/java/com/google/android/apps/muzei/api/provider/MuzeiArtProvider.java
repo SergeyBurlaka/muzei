@@ -24,6 +24,7 @@ import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.pm.ProviderInfo;
 import android.database.Cursor;
@@ -45,6 +46,7 @@ import android.util.Log;
 
 import com.google.android.apps.muzei.api.UserCommand;
 import com.google.android.apps.muzei.api.internal.OkHttpClientFactory;
+import com.google.android.apps.muzei.api.internal.RecentArtworkIdsConverter;
 
 import org.json.JSONArray;
 
@@ -55,6 +57,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -66,9 +69,13 @@ import okhttp3.Response;
 import static com.google.android.apps.muzei.api.internal.ProtocolConstants.KEY_COMMAND;
 import static com.google.android.apps.muzei.api.internal.ProtocolConstants.KEY_COMMANDS;
 import static com.google.android.apps.muzei.api.internal.ProtocolConstants.KEY_DESCRIPTION;
+import static com.google.android.apps.muzei.api.internal.ProtocolConstants.KEY_MAX_LOADED_ARTWORK_ID;
 import static com.google.android.apps.muzei.api.internal.ProtocolConstants.KEY_OPEN_ARTWORK_INFO_SUCCESS;
+import static com.google.android.apps.muzei.api.internal.ProtocolConstants.KEY_RECENT_ARTWORK_IDS;
 import static com.google.android.apps.muzei.api.internal.ProtocolConstants.METHOD_GET_COMMANDS;
 import static com.google.android.apps.muzei.api.internal.ProtocolConstants.METHOD_GET_DESCRIPTION;
+import static com.google.android.apps.muzei.api.internal.ProtocolConstants.METHOD_GET_LOAD_INFO;
+import static com.google.android.apps.muzei.api.internal.ProtocolConstants.METHOD_MARK_ARTWORK_LOADED;
 import static com.google.android.apps.muzei.api.internal.ProtocolConstants.METHOD_OPEN_ARTWORK_INFO;
 import static com.google.android.apps.muzei.api.internal.ProtocolConstants.METHOD_REQUEST_LOAD;
 import static com.google.android.apps.muzei.api.internal.ProtocolConstants.METHOD_TRIGGER_COMMAND;
@@ -196,6 +203,8 @@ import static com.google.android.apps.muzei.api.internal.ProtocolConstants.METHO
 public abstract class MuzeiArtProvider extends ContentProvider {
     private static final String TAG = "MuzeiArtProvider";
 
+    private static final int MAX_RECENT_ARTWORK = 100;
+
     /**
      * The {@link Intent} action representing a Muzei art provider. This provider should
      * declare an <code>&lt;intent-filter&gt;</code> for this action in order to register with
@@ -211,6 +220,8 @@ public abstract class MuzeiArtProvider extends ContentProvider {
      */
     public static final String EXTRA_FROM_MUZEI_SETTINGS
             = "com.google.android.apps.muzei.api.extra.FROM_MUZEI_SETTINGS";
+    private static final String PREF_MAX_LOADED_ARTWORK_ID = "maxLoadedArtworkId";
+    private static final String PREF_RECENT_ARTWORK_IDS = "recentArtworkIds";
 
     /**
      * Retrieve the content URI for the given {@link MuzeiArtProvider}, allowing you to build
@@ -384,6 +395,37 @@ public abstract class MuzeiArtProvider extends ContentProvider {
                         onLoadRequested(data == null || data.getCount() == 0);
                     }
                     break;
+                case METHOD_MARK_ARTWORK_LOADED:
+                    try (Cursor data = query(contentUri, null, null, null, null)) {
+                        SharedPreferences prefs = context.getSharedPreferences(authority, Context.MODE_PRIVATE);
+                        SharedPreferences.Editor editor = prefs.edit();
+                        // See if we need to update the maxLoadedArtworkId
+                        long currentMaxId = prefs.getLong(PREF_MAX_LOADED_ARTWORK_ID, 0L);
+                        long loadedId = ContentUris.parseId(Uri.parse(arg));
+                        if (loadedId > currentMaxId) {
+                            editor.putLong(PREF_MAX_LOADED_ARTWORK_ID, currentMaxId);
+                        }
+                        // Update the list of recent artwork ids
+                        ArrayDeque<Long> recentArtworkIds = RecentArtworkIdsConverter.fromString(
+                                prefs.getString(PREF_RECENT_ARTWORK_IDS, ""));
+                        recentArtworkIds.addLast(loadedId);
+                        int artworkCount = data != null ? data.getCount() : 0;
+                        int maxSize = Math.min(Math.max(artworkCount, 1), MAX_RECENT_ARTWORK);
+                        while (recentArtworkIds.size() > maxSize) {
+                            removeAutoCachedFile(recentArtworkIds.removeFirst());
+                        }
+                        editor.putString(PREF_RECENT_ARTWORK_IDS,
+                                RecentArtworkIdsConverter.idsListToString(recentArtworkIds));
+                        editor.apply();
+                    }
+                    break;
+                case METHOD_GET_LOAD_INFO: {
+                    SharedPreferences prefs = context.getSharedPreferences(authority, Context.MODE_PRIVATE);
+                    Bundle bundle = new Bundle();
+                    bundle.putLong(KEY_MAX_LOADED_ARTWORK_ID, prefs.getLong(PREF_MAX_LOADED_ARTWORK_ID, 0L));
+                    bundle.putString(KEY_RECENT_ARTWORK_IDS, prefs.getString(PREF_RECENT_ARTWORK_IDS, ""));
+                    return bundle;
+                }
                 case METHOD_GET_DESCRIPTION: {
                     Bundle bundle = new Bundle();
                     bundle.putString(KEY_DESCRIPTION, getDescription());
@@ -693,6 +735,7 @@ public abstract class MuzeiArtProvider extends ContentProvider {
             }
             artwork = Artwork.fromCursor(data);
         }
+        //noinspection ConstantConditions
         if (!artwork.getData().exists() && mode.equals("r")) {
             // Download the image from the persistent URI for read-only operations
             // rather than throw a FileNotFoundException
@@ -714,6 +757,21 @@ public abstract class MuzeiArtProvider extends ContentProvider {
             }
         }
         return ParcelFileDescriptor.open(artwork.getData(), ParcelFileDescriptor.parseMode(mode));
+    }
+
+    private void removeAutoCachedFile(long artworkId) {
+        Uri artworkUri = ContentUris.withAppendedId(contentUri, artworkId);
+        try (Cursor data = query(artworkUri, null, null, null, null)) {
+            if (data == null) {
+                return;
+            }
+            Artwork artwork = Artwork.fromCursor(data);
+            //noinspection ConstantConditions
+            if (artwork.getPersistentUri() != null && artwork.getData().exists()) {
+                //noinspection ResultOfMethodCallIgnored
+                artwork.getData().delete();
+            }
+        }
     }
 
     /**
