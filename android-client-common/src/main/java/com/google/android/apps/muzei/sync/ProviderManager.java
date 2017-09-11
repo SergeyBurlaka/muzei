@@ -27,6 +27,7 @@ import android.arch.lifecycle.OnLifecycleEvent;
 import android.content.ComponentName;
 import android.content.ContentProviderClient;
 import android.content.Context;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -190,8 +191,27 @@ public class ProviderManager implements LifecycleObserver, Observer<Provider>, L
     }
 
     public boolean getSupportsNextArtworkBlocking() {
-        // TODO Actually check to see if we can go to the next artwork
-        return false;
+        MuzeiDatabase database = MuzeiDatabase.getInstance(mContext);
+        Provider provider = database.providerDao()
+                .getCurrentProviderBlocking();
+        if (provider == null) {
+            return false;
+        }
+        Uri contentUri = MuzeiArtProvider.getContentUri(mContext, provider.componentName);
+        try (ContentProviderClient client = mContext.getContentResolver()
+                .acquireUnstableContentProviderClient(contentUri)) {
+            if (client == null) {
+                return false;
+            }
+            try (Cursor allArtwork = client.query(contentUri,
+                    null, null, null, null)) {
+                return allArtwork != null && allArtwork.getCount() > 1;
+            }
+        } catch (RemoteException e) {
+            Log.i(TAG, "Provider " + provider.componentName + " crashed " +
+                    "when determining if it supports the 'Next Artwork' command", e);
+            return false;
+        }
     }
 
     public void nextArtwork() {
