@@ -30,6 +30,7 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
 import com.google.android.apps.muzei.api.MuzeiContract;
+import com.google.android.apps.muzei.sync.ProviderManager;
 import com.google.firebase.analytics.FirebaseAnalytics;
 
 import java.io.File;
@@ -66,6 +67,7 @@ public abstract class MuzeiDatabase extends RoomDatabase {
                             if (provider == null) {
                                 return;
                             }
+                            ProviderManager.getInstance(applicationContext).onChanged(provider);
                             sendSelectedSourceAnalytics(applicationContext, provider.componentName);
                             applicationContext.getContentResolver()
                                     .notifyChange(MuzeiContract.Sources.CONTENT_URI,null);

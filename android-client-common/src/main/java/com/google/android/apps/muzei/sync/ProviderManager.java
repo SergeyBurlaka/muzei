@@ -18,19 +18,19 @@ package com.google.android.apps.muzei.sync;
 
 import android.annotation.SuppressLint;
 import android.arch.lifecycle.Lifecycle;
-import android.arch.lifecycle.LifecycleObserver;
 import android.arch.lifecycle.LifecycleOwner;
 import android.arch.lifecycle.LifecycleRegistry;
-import android.arch.lifecycle.LiveData;
+import android.arch.lifecycle.MutableLiveData;
 import android.arch.lifecycle.Observer;
-import android.arch.lifecycle.OnLifecycleEvent;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.RemoteException;
+import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.util.Log;
@@ -42,6 +42,8 @@ import com.google.android.apps.muzei.room.MuzeiDatabase;
 import com.google.android.apps.muzei.room.Provider;
 import com.google.android.apps.muzei.util.ContentProviderClientCompat;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
@@ -51,8 +53,10 @@ import static com.google.android.apps.muzei.api.internal.ProtocolConstants.METHO
 /**
  * Manager which controls
  */
-public class ProviderManager implements LifecycleObserver, Observer<Provider>, LifecycleOwner {
+public class ProviderManager extends MutableLiveData<Provider>
+        implements Observer<Provider>, LifecycleOwner {
     private static final String TAG = "ProviderManager";
+    private static final String PREF_PERSISTENT_LISTENERS = "persistentListeners";
 
     private static ProviderManager sInstance;
 
@@ -64,14 +68,40 @@ public class ProviderManager implements LifecycleObserver, Observer<Provider>, L
     }
 
     private final Executor mExecutor = Executors.newSingleThreadExecutor();
+    private final Observer<Provider> mPersistentListener = new Observer<Provider>() {
+        @Override
+        public void onChanged(@Nullable Provider provider) {
+        }
+    };
     private final Context mContext;
     private final LifecycleRegistry mLifecycle;
-
-    private LiveData<Provider> mProviderLiveData;
 
     private ProviderManager(final Context context) {
         mContext = context;
         mLifecycle = new LifecycleRegistry(this);
+        // Check for persistent listeners which don't have a set lifecycle, but still need to
+        // be counted as observers
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(mContext);
+        Set<String> persistentListeners = preferences.getStringSet(PREF_PERSISTENT_LISTENERS,
+                new HashSet<String>());
+        if (!persistentListeners.isEmpty()) {
+            observeForever(mPersistentListener);
+        }
+        preferences.registerOnSharedPreferenceChangeListener(
+                new SharedPreferences.OnSharedPreferenceChangeListener() {
+                    @Override
+                    public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
+                        if (PREF_PERSISTENT_LISTENERS.equals(key)) {
+                            Set<String> newListeners = sharedPreferences.getStringSet(
+                                    PREF_PERSISTENT_LISTENERS, new HashSet<String>());
+                            if (!newListeners.isEmpty()) {
+                                observeForever(mPersistentListener);
+                            } else {
+                                removeObserver(mPersistentListener);
+                            }
+                        }
+                    }
+                });
     }
 
     @Override
@@ -79,19 +109,37 @@ public class ProviderManager implements LifecycleObserver, Observer<Provider>, L
         return mLifecycle;
     }
 
-    @OnLifecycleEvent(Lifecycle.Event.ON_CREATE)
-    public void onMuzeiEnabled() {
-        mProviderLiveData = MuzeiDatabase.getInstance(mContext).providerDao().getCurrentProvider();
-        mProviderLiveData.observeForever(this);
+    public void addPersistentListener(String name) {
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(mContext);
+        Set<String> persistentListeners = preferences.getStringSet(PREF_PERSISTENT_LISTENERS,
+                new HashSet<String>());
+        persistentListeners.add(name);
+        preferences.edit().putStringSet(PREF_PERSISTENT_LISTENERS, persistentListeners).apply();
+    }
+
+    @Override
+    protected void onActive() {
+        // TODO Confirm we have artwork from the current provider
+        // TODO Start periodic loading of new artwork
     }
 
     @Override
     public void onChanged(@Nullable final Provider provider) {
+        setValue(provider);
+        // TODO Confirm we have artwork from the new provider
     }
 
-    @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
-    public void onMuzeiDisabled() {
-        mProviderLiveData.removeObserver(this);
+    @Override
+    protected void onInactive() {
+        // TODO Stop periodic loading of new artwork
+    }
+
+    public void removePersistentListener(String name) {
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(mContext);
+        Set<String> persistentListeners = preferences.getStringSet(PREF_PERSISTENT_LISTENERS,
+                new HashSet<String>());
+        persistentListeners.remove(name);
+        preferences.edit().putStringSet(PREF_PERSISTENT_LISTENERS, persistentListeners).apply();
     }
 
     public interface ProviderCallback {
@@ -146,8 +194,7 @@ public class ProviderManager implements LifecycleObserver, Observer<Provider>, L
 
     @NonNull
     public String getCurrentDescription() {
-        Provider provider = MuzeiDatabase.getInstance(mContext).providerDao()
-                .getCurrentProviderBlocking();
+        Provider provider = getValue();
         return provider != null
                 ? getDescriptionBlocking(provider.componentName)
                 : "";
@@ -191,9 +238,7 @@ public class ProviderManager implements LifecycleObserver, Observer<Provider>, L
     }
 
     public boolean getSupportsNextArtworkBlocking() {
-        MuzeiDatabase database = MuzeiDatabase.getInstance(mContext);
-        Provider provider = database.providerDao()
-                .getCurrentProviderBlocking();
+        Provider provider = getValue();
         if (provider == null) {
             return false;
         }

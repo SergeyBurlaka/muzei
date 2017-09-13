@@ -39,6 +39,7 @@ import com.google.android.apps.muzei.FullScreenActivity;
 import com.google.android.apps.muzei.api.MuzeiContract;
 import com.google.android.apps.muzei.room.Artwork;
 import com.google.android.apps.muzei.room.MuzeiDatabase;
+import com.google.android.apps.muzei.sync.ProviderManager;
 import com.google.firebase.analytics.FirebaseAnalytics;
 
 import net.nurik.roman.muzei.BuildConfig;
@@ -70,6 +71,7 @@ public class ArtworkComplicationProviderService extends ComplicationProviderServ
         Bundle bundle = new Bundle();
         bundle.putString(FirebaseAnalytics.Param.CONTENT_TYPE, Integer.toString(type));
         FirebaseAnalytics.getInstance(this).logEvent("complication_artwork_activated", bundle);
+        ProviderManager.getInstance(this).addPersistentListener("complication_artwork");
     }
 
     private void addComplication(int complicationId) {
@@ -98,6 +100,7 @@ public class ArtworkComplicationProviderService extends ComplicationProviderServ
         }
         if (complications.isEmpty()) {
             ArtworkComplicationJobService.cancelComplicationUpdateJob(this);
+            ProviderManager.getInstance(this).removePersistentListener("complication_artwork");
         }
     }
 
