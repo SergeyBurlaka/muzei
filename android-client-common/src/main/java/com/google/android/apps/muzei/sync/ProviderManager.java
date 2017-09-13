@@ -37,6 +37,7 @@ import android.util.Log;
 
 import com.firebase.jobdispatcher.FirebaseJobDispatcher;
 import com.firebase.jobdispatcher.GooglePlayDriver;
+import com.firebase.jobdispatcher.Lifetime;
 import com.google.android.apps.muzei.api.provider.MuzeiArtProvider;
 import com.google.android.apps.muzei.room.MuzeiDatabase;
 import com.google.android.apps.muzei.room.Provider;
@@ -46,6 +47,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static com.google.android.apps.muzei.api.internal.ProtocolConstants.KEY_DESCRIPTION;
 import static com.google.android.apps.muzei.api.internal.ProtocolConstants.METHOD_GET_DESCRIPTION;
@@ -57,7 +59,8 @@ public class ProviderManager extends MutableLiveData<Provider>
         implements Observer<Provider>, LifecycleOwner {
     private static final String TAG = "ProviderManager";
     private static final String PREF_PERSISTENT_LISTENERS = "persistentListeners";
-
+    private static final String PREF_LOAD_FREQUENCY_SECONDS = "loadFrequencySeconds";
+    private static final int DEFAULT_LOAD_FREQUENCY_SECONDS = (int) TimeUnit.HOURS.toSeconds(6);
     private static ProviderManager sInstance;
 
     public static ProviderManager getInstance(Context context) {
@@ -119,19 +122,30 @@ public class ProviderManager extends MutableLiveData<Provider>
 
     @Override
     protected void onActive() {
-        // TODO Confirm we have artwork from the current provider
-        // TODO Start periodic loading of new artwork
+        startArtworkLoad();
     }
 
     @Override
     public void onChanged(@Nullable final Provider provider) {
         setValue(provider);
-        // TODO Confirm we have artwork from the new provider
+        startArtworkLoad();
+    }
+
+    private void startArtworkLoad() {
+        if (hasActiveObservers() && getValue() != null) {
+            FirebaseJobDispatcher jobDispatcher = new FirebaseJobDispatcher(new GooglePlayDriver(mContext));
+            jobDispatcher.mustSchedule(jobDispatcher.newJobBuilder()
+                    .setService(ProviderSelectedJobService.class)
+                    .setTag("selected")
+                    .setLifetime(Lifetime.FOREVER)
+                    .build());
+        }
     }
 
     @Override
     protected void onInactive() {
-        // TODO Stop periodic loading of new artwork
+        FirebaseJobDispatcher jobDispatcher = new FirebaseJobDispatcher(new GooglePlayDriver(mContext));
+        jobDispatcher.cancel("scheduled");
     }
 
     public void removePersistentListener(String name) {
@@ -140,6 +154,11 @@ public class ProviderManager extends MutableLiveData<Provider>
                 new HashSet<String>());
         persistentListeners.remove(name);
         preferences.edit().putStringSet(PREF_PERSISTENT_LISTENERS, persistentListeners).apply();
+    }
+
+    int getLoadFrequencySeconds() {
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(mContext);
+        return preferences.getInt(PREF_LOAD_FREQUENCY_SECONDS, DEFAULT_LOAD_FREQUENCY_SECONDS);
     }
 
     public interface ProviderCallback {
@@ -260,10 +279,6 @@ public class ProviderManager extends MutableLiveData<Provider>
     }
 
     public void nextArtwork() {
-        FirebaseJobDispatcher jobDispatcher = new FirebaseJobDispatcher(new GooglePlayDriver(mContext));
-        jobDispatcher.mustSchedule(jobDispatcher.newJobBuilder()
-            .setService(ArtworkLoadJobService.class)
-            .setTag("next")
-            .build());
+        ArtworkLoadJobService.scheduleNext(mContext);
     }
 }

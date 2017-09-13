@@ -42,6 +42,13 @@
             android:permission="android.permission.BIND_JOB_SERVICE" />
 
         <service
+            android:name="com.google.android.apps.muzei.sync.ProviderSelectedJobService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.firebase.jobdispatcher.ACTION_EXECUTE" />
+            </intent-filter>
+        </service>
+        <service
             android:name="com.google.android.apps.muzei.sync.ArtworkLoadJobService"
             android:exported="false">
             <intent-filter>

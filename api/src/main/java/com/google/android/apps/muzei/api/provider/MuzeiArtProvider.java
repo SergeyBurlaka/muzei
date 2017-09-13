@@ -69,6 +69,7 @@ import okhttp3.Response;
 import static com.google.android.apps.muzei.api.internal.ProtocolConstants.KEY_COMMAND;
 import static com.google.android.apps.muzei.api.internal.ProtocolConstants.KEY_COMMANDS;
 import static com.google.android.apps.muzei.api.internal.ProtocolConstants.KEY_DESCRIPTION;
+import static com.google.android.apps.muzei.api.internal.ProtocolConstants.KEY_LAST_LOADED_TIME;
 import static com.google.android.apps.muzei.api.internal.ProtocolConstants.KEY_MAX_LOADED_ARTWORK_ID;
 import static com.google.android.apps.muzei.api.internal.ProtocolConstants.KEY_OPEN_ARTWORK_INFO_SUCCESS;
 import static com.google.android.apps.muzei.api.internal.ProtocolConstants.KEY_RECENT_ARTWORK_IDS;
@@ -221,6 +222,7 @@ public abstract class MuzeiArtProvider extends ContentProvider {
     public static final String EXTRA_FROM_MUZEI_SETTINGS
             = "com.google.android.apps.muzei.api.extra.FROM_MUZEI_SETTINGS";
     private static final String PREF_MAX_LOADED_ARTWORK_ID = "maxLoadedArtworkId";
+    private static final String PREF_LAST_LOADED_TIME = "lastLoadTime";
     private static final String PREF_RECENT_ARTWORK_IDS = "recentArtworkIds";
 
     /**
@@ -405,6 +407,8 @@ public abstract class MuzeiArtProvider extends ContentProvider {
                         if (loadedId > currentMaxId) {
                             editor.putLong(PREF_MAX_LOADED_ARTWORK_ID, currentMaxId);
                         }
+                        // Update the last loaded time
+                        editor.putLong(PREF_LAST_LOADED_TIME, System.currentTimeMillis());
                         // Update the list of recent artwork ids
                         ArrayDeque<Long> recentArtworkIds = RecentArtworkIdsConverter.fromString(
                                 prefs.getString(PREF_RECENT_ARTWORK_IDS, ""));
@@ -423,6 +427,7 @@ public abstract class MuzeiArtProvider extends ContentProvider {
                     SharedPreferences prefs = context.getSharedPreferences(authority, Context.MODE_PRIVATE);
                     Bundle bundle = new Bundle();
                     bundle.putLong(KEY_MAX_LOADED_ARTWORK_ID, prefs.getLong(PREF_MAX_LOADED_ARTWORK_ID, 0L));
+                    bundle.putLong(KEY_LAST_LOADED_TIME, prefs.getLong(PREF_LAST_LOADED_TIME, 0L));
                     bundle.putString(KEY_RECENT_ARTWORK_IDS, prefs.getString(PREF_RECENT_ARTWORK_IDS, ""));
                     return bundle;
                 }

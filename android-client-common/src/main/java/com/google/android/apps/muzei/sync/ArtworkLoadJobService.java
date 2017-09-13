@@ -17,6 +17,7 @@
 package com.google.android.apps.muzei.sync;
 
 import android.content.ContentUris;
+import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
@@ -26,8 +27,11 @@ import android.provider.BaseColumns;
 import android.support.annotation.Nullable;
 import android.util.Log;
 
+import com.firebase.jobdispatcher.FirebaseJobDispatcher;
+import com.firebase.jobdispatcher.GooglePlayDriver;
 import com.firebase.jobdispatcher.JobParameters;
 import com.firebase.jobdispatcher.JobService;
+import com.firebase.jobdispatcher.Lifetime;
 import com.firebase.jobdispatcher.SimpleJobService;
 import com.google.android.apps.muzei.api.internal.RecentArtworkIdsConverter;
 import com.google.android.apps.muzei.api.provider.MuzeiArtProvider;
@@ -52,6 +56,15 @@ import static com.google.android.apps.muzei.api.internal.ProtocolConstants.METHO
  */
 public class ArtworkLoadJobService extends SimpleJobService {
     private static final String TAG = "ArtworkLoadJobService";
+
+    static void scheduleNext(Context context) {
+        FirebaseJobDispatcher jobDispatcher = new FirebaseJobDispatcher(new GooglePlayDriver(context));
+        jobDispatcher.mustSchedule(jobDispatcher.newJobBuilder()
+                .setService(ArtworkLoadJobService.class)
+                .setTag("next")
+                .setLifetime(Lifetime.FOREVER)
+                .build());
+    }
 
     @Override
     public int onRunJob(final JobParameters job) {
@@ -155,7 +168,10 @@ public class ArtworkLoadJobService extends SimpleJobService {
         com.google.android.apps.muzei.api.provider.Artwork providerArtwork =
                 com.google.android.apps.muzei.api.provider.Artwork.fromCursor(data);
         Uri artworkUri = ContentUris.withAppendedId(contentUri, providerArtwork.getId());
-        try (ParcelFileDescriptor ignored = client.openFile(artworkUri)) {
+        try (ParcelFileDescriptor parcelFileDescriptor = client.openFile(artworkUri)) {
+            if (parcelFileDescriptor == null) {
+                return null;
+            }
             Artwork artwork = new Artwork();
             artwork.imageUri = artworkUri;
             artwork.title = providerArtwork.getTitle();

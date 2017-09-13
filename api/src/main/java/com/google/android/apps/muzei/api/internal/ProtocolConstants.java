@@ -41,6 +41,7 @@ public class ProtocolConstants {
     public static final String METHOD_MARK_ARTWORK_LOADED = PREFIX + "MARK_ARTWORK_LOADED";
     public static final String METHOD_GET_LOAD_INFO = PREFIX + "GET_LOAD_INFO";
     public static final String KEY_MAX_LOADED_ARTWORK_ID = PREFIX + "MAX_LOADED_ARTWORK_ID";
+    public static final String KEY_LAST_LOADED_TIME = PREFIX + "LAST_LOAD_TIME";
     public static final String KEY_RECENT_ARTWORK_IDS = PREFIX + "RECENT_ARTWORK_IDS";
     public static final String METHOD_GET_DESCRIPTION = PREFIX + "GET_DESCRIPTION";
     public static final String KEY_DESCRIPTION = PREFIX + "DESCRIPTION";
