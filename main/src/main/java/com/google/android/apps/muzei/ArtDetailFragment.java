@@ -42,7 +42,6 @@ import android.widget.TextView;
 import com.google.android.apps.muzei.api.MuzeiContract;
 import com.google.android.apps.muzei.api.UserCommand;
 import com.google.android.apps.muzei.event.ArtDetailOpenedClosedEvent;
-import com.google.android.apps.muzei.event.ArtworkLoadingStateChangedEvent;
 import com.google.android.apps.muzei.event.ArtworkSizeChangedEvent;
 import com.google.android.apps.muzei.event.SwitchingPhotosStateChangedEvent;
 import com.google.android.apps.muzei.event.WallpaperSizeChangedEvent;
@@ -52,7 +51,6 @@ import com.google.android.apps.muzei.room.MuzeiDatabase;
 import com.google.android.apps.muzei.room.Provider;
 import com.google.android.apps.muzei.settings.AboutActivity;
 import com.google.android.apps.muzei.sync.ProviderManager;
-import com.google.android.apps.muzei.sync.TaskQueueService;
 import com.google.android.apps.muzei.util.AnimatedMuzeiLoadingSpinnerView;
 import com.google.android.apps.muzei.util.PanScaleProxyView;
 import com.google.android.apps.muzei.util.ScrimUtil;
@@ -84,7 +82,7 @@ public class ArtDetailFragment extends Fragment {
                         @Override
                         public void onCallback(boolean supportsNextArtwork) {
                             mSupportsNextArtwork = supportsNextArtwork;
-                            mNextButton.setVisibility(mSupportsNextArtwork && !mArtworkLoading ? View.VISIBLE : View.GONE);
+                            mNextButton.setVisibility(mSupportsNextArtwork ? View.VISIBLE : View.GONE);
                         }
                     });
         }
@@ -131,10 +129,24 @@ public class ArtDetailFragment extends Fragment {
                     }
                 }
             });
+
+            // Artwork no longer loading, update the visibility of the next button
+            ProviderManager.getInstance(getContext()).getSupportsNextArtwork(
+                    new ProviderManager.SupportNextArtworkCallback() {
+                        @Override
+                        public void onCallback(boolean supportsNextArtwork) {
+                            mSupportsNextArtwork = supportsNextArtwork;
+                            mNextButton.setVisibility(mSupportsNextArtwork ? View.VISIBLE : View.GONE);
+                        }
+                    });
+            if (mNextFakeLoading) {
+                mNextFakeLoading = false;
+                mHandler.removeCallbacks(mUnsetNextFakeLoadingRunnable);
+            }
+
+            updateLoadingSpinnerVisibility();
         }
     };
-
-    private static final int LOAD_ERROR_COUNT_EASTER_EGG = 4;
 
     private boolean mGuardViewportChangeListener;
     private boolean mDeferResetViewport;
@@ -158,20 +170,14 @@ public class ArtDetailFragment extends Fragment {
     private View mChromeContainerView;
     private View mMetadataView;
     private View mLoadingContainerView;
-    private View mLoadErrorContainerView;
-    private View mLoadErrorEasterEggView;
     private AnimatedMuzeiLoadingSpinnerView mLoadingIndicatorView;
     private View mNextButton;
     private TextView mTitleView;
     private TextView mBylineView;
     private TextView mAttributionView;
     private PanScaleProxyView mPanScaleProxyView;
-    private boolean mArtworkLoading = false;
-    private boolean mArtworkLoadingError = false;
     private boolean mLoadingSpinnerShown = false;
-    private boolean mLoadErrorShown = false;
     private boolean mNextFakeLoading = false;
-    private int mConsecutiveLoadErrorCount = 0;
     private LiveData<Provider> mCurrentProviderLiveData;
     private LiveData<Artwork> mCurrentArtworkLiveData;
 
@@ -307,16 +313,6 @@ public class ArtDetailFragment extends Fragment {
 
         mLoadingContainerView = view.findViewById(R.id.image_loading_container);
         mLoadingIndicatorView = view.findViewById(R.id.image_loading_indicator);
-        mLoadErrorContainerView = view.findViewById(R.id.image_error_container);
-        mLoadErrorEasterEggView = view.findViewById(R.id.error_easter_egg);
-
-        view.findViewById(R.id.image_error_retry_button).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                showNextFakeLoading();
-                getContext().startService(TaskQueueService.getDownloadCurrentArtworkIntent(getContext()));
-            }
-        });
 
         EventBus.getDefault().register(this);
 
@@ -330,12 +326,6 @@ public class ArtDetailFragment extends Fragment {
                 ArtworkSizeChangedEvent.class);
         if (asce != null) {
             onEventMainThread(asce);
-        }
-
-        ArtworkLoadingStateChangedEvent alsce = EventBus.getDefault().getStickyEvent(
-                ArtworkLoadingStateChangedEvent.class);
-        if (alsce != null) {
-            onEventMainThread(alsce);
         }
 
         ArtDetailViewport fve = EventBus.getDefault().getStickyEvent(ArtDetailViewport.class);
@@ -364,7 +354,6 @@ public class ArtDetailFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        mConsecutiveLoadErrorCount = 0;
         NewWallpaperNotificationReceiver.markNotificationRead(getContext());
     }
 
@@ -451,43 +440,25 @@ public class ArtDetailFragment extends Fragment {
         EventBus.getDefault().postSticky(new ArtDetailOpenedClosedEvent(false));
     }
 
-    @Subscribe
-    public void onEventMainThread(ArtworkLoadingStateChangedEvent e) {
-        mArtworkLoading = e.isLoading();
-        mArtworkLoadingError = e.hadError();
-        if (!mArtworkLoading) {
-            mNextFakeLoading = false;
-            if (!mArtworkLoadingError) {
-                mConsecutiveLoadErrorCount = 0;
-            }
-        }
-
-        // Artwork no longer loading, update the visibility of the next button
-        mNextButton.setVisibility(mSupportsNextArtwork && !mArtworkLoading ? View.VISIBLE : View.GONE);
-
-        updateLoadingSpinnerAndErrorVisibility();
-    }
-
     private void showNextFakeLoading() {
         mNextFakeLoading = true;
         // Show a loading spinner for up to 10 seconds. When new artwork is loaded,
         // the loading spinner will go away. See onEventMainThread(ArtworkLoadingStateChangedEvent)
         mHandler.removeCallbacks(mUnsetNextFakeLoadingRunnable);
         mHandler.postDelayed(mUnsetNextFakeLoadingRunnable, 10000);
-        updateLoadingSpinnerAndErrorVisibility();
+        updateLoadingSpinnerVisibility();
     }
 
     private Runnable mUnsetNextFakeLoadingRunnable = new Runnable() {
         @Override
         public void run() {
             mNextFakeLoading = false;
-            updateLoadingSpinnerAndErrorVisibility();
+            updateLoadingSpinnerVisibility();
         }
     };
 
-    private void updateLoadingSpinnerAndErrorVisibility() {
-        boolean showLoadingSpinner = mArtworkLoading || mNextFakeLoading;
-        boolean showError = !showLoadingSpinner && mArtworkLoadingError;
+    private void updateLoadingSpinnerVisibility() {
+        boolean showLoadingSpinner = mNextFakeLoading;
 
         if (showLoadingSpinner != mLoadingSpinnerShown) {
             mLoadingSpinnerShown = showLoadingSpinner;
@@ -507,24 +478,6 @@ public class ArtDetailFragment extends Fragment {
                         });
             }
         }
-
-        if (showError != mLoadErrorShown) {
-            mLoadErrorShown = showError;
-            mHandler.removeCallbacks(mShowLoadErrorRunnable);
-            if (showError) {
-                mHandler.postDelayed(mShowLoadErrorRunnable, 700);
-            } else {
-                mLoadErrorContainerView.animate()
-                        .alpha(0)
-                        .setDuration(1000)
-                        .withEndAction(new Runnable() {
-                            @Override
-                            public void run() {
-                                mLoadErrorContainerView.setVisibility(View.GONE);
-                            }
-                        });
-            }
-        }
     }
 
     private Runnable mShowLoadingSpinnerRunnable = new Runnable() {
@@ -533,21 +486,6 @@ public class ArtDetailFragment extends Fragment {
             mLoadingIndicatorView.start();
             mLoadingContainerView.setVisibility(View.VISIBLE);
             mLoadingContainerView.animate()
-                    .alpha(1)
-                    .setDuration(300)
-                    .withEndAction(null);
-        }
-    };
-
-    private Runnable mShowLoadErrorRunnable = new Runnable() {
-        @Override
-        public void run() {
-            ++mConsecutiveLoadErrorCount;
-            mLoadErrorEasterEggView.setVisibility(
-                    (mConsecutiveLoadErrorCount >= LOAD_ERROR_COUNT_EASTER_EGG)
-                    ? View.VISIBLE : View.GONE);
-            mLoadErrorContainerView.setVisibility(View.VISIBLE);
-            mLoadErrorContainerView.animate()
                     .alpha(1)
                     .setDuration(300)
                     .withEndAction(null);
