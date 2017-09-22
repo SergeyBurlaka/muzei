@@ -757,6 +757,10 @@ public abstract class MuzeiArtProvider extends ContentProvider {
                 if (e instanceof SecurityException) {
                     delete(uri, null, null);
                 }
+                // Delete the file in cases of an error so that we will try again from scratch next time.
+                if (artwork.getData().exists() && !artwork.getData().delete()) {
+                    Log.w(TAG, "Error deleting partially downloaded file after error", e);
+                }
                 throw new FileNotFoundException("Could not download artwork " + artwork
                         + " for " + uri);
             }
