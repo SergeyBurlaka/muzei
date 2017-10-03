@@ -25,7 +25,6 @@ import android.arch.lifecycle.Observer;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.database.Cursor;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -248,47 +247,6 @@ public class ProviderManager extends MutableLiveData<Provider>
                 Log.i(TAG, "Provider " + provider + " crashed while retrieving description", e);
                 return "";
             }
-        }
-    }
-
-    public interface SupportNextArtworkCallback {
-        void onCallback(boolean supportsNextArtwork);
-    }
-
-    @SuppressLint("StaticFieldLeak")
-    public void getSupportsNextArtwork(final SupportNextArtworkCallback callback) {
-        new AsyncTask<Void, Void, Boolean>() {
-            @Override
-            protected Boolean doInBackground(final Void... voids) {
-                return getSupportsNextArtworkBlocking();
-            }
-
-            @Override
-            protected void onPostExecute(final Boolean supportsNextArtwork) {
-                callback.onCallback(supportsNextArtwork);
-            }
-        }.executeOnExecutor(mExecutor);
-    }
-
-    public boolean getSupportsNextArtworkBlocking() {
-        Provider provider = getValue();
-        if (provider == null) {
-            return false;
-        }
-        Uri contentUri = MuzeiArtProvider.getContentUri(mContext, provider.componentName);
-        try (ContentProviderClientCompat client = ContentProviderClientCompat
-                .getClient(mContext, contentUri)) {
-            if (client == null) {
-                return false;
-            }
-            try (Cursor allArtwork = client.query(contentUri,
-                    null, null, null, null)) {
-                return allArtwork != null && allArtwork.getCount() > 1;
-            }
-        } catch (RemoteException e) {
-            Log.i(TAG, "Provider " + provider.componentName + " crashed " +
-                    "when determining if it supports the 'Next Artwork' command", e);
-            return false;
         }
     }
 

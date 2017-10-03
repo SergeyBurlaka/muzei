@@ -77,14 +77,8 @@ public class ArtDetailFragment extends Fragment {
             mOverflowSourceActionMap.clear();
             mOverflowMenu.getMenu().clear();
             mOverflowMenu.inflate(R.menu.muzei_overflow);
-            ProviderManager.getInstance(getContext()).getSupportsNextArtwork(
-                    new ProviderManager.SupportNextArtworkCallback() {
-                        @Override
-                        public void onCallback(boolean supportsNextArtwork) {
-                            mSupportsNextArtwork = supportsNextArtwork;
-                            mNextButton.setVisibility(mSupportsNextArtwork ? View.VISIBLE : View.GONE);
-                        }
-                    });
+            mSupportsNextArtwork = provider != null && provider.supportsNextArtwork;
+            mNextButton.setVisibility(mSupportsNextArtwork ? View.VISIBLE : View.GONE);
         }
     };
 
@@ -130,15 +124,6 @@ public class ArtDetailFragment extends Fragment {
                 }
             });
 
-            // Artwork no longer loading, update the visibility of the next button
-            ProviderManager.getInstance(getContext()).getSupportsNextArtwork(
-                    new ProviderManager.SupportNextArtworkCallback() {
-                        @Override
-                        public void onCallback(boolean supportsNextArtwork) {
-                            mSupportsNextArtwork = supportsNextArtwork;
-                            mNextButton.setVisibility(mSupportsNextArtwork ? View.VISIBLE : View.GONE);
-                        }
-                    });
             if (mNextFakeLoading) {
                 mNextFakeLoading = false;
                 mHandler.removeCallbacks(mUnsetNextFakeLoadingRunnable);

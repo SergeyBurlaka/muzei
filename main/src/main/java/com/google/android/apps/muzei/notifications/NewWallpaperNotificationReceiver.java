@@ -51,6 +51,7 @@ import com.google.android.apps.muzei.render.BitmapRegionLoader;
 import com.google.android.apps.muzei.render.ImageUtil;
 import com.google.android.apps.muzei.room.Artwork;
 import com.google.android.apps.muzei.room.MuzeiDatabase;
+import com.google.android.apps.muzei.room.Provider;
 import com.google.android.apps.muzei.sync.ProviderManager;
 
 import net.nurik.roman.muzei.R;
@@ -213,10 +214,13 @@ public class NewWallpaperNotificationReceiver extends BroadcastReceiver {
         }
 
         ContentResolver contentResolver = context.getContentResolver();
+        Provider provider = MuzeiDatabase.getInstance(context)
+                .providerDao()
+                .getCurrentProviderBlocking();
         Artwork artwork = MuzeiDatabase.getInstance(context)
                 .artworkDao()
                 .getCurrentArtworkBlocking();
-        if (artwork == null) {
+        if (provider == null || artwork == null) {
             return;
         }
 
@@ -316,7 +320,7 @@ public class NewWallpaperNotificationReceiver extends BroadcastReceiver {
         NotificationCompat.WearableExtender extender = new NotificationCompat.WearableExtender();
 
         // Support Next Artwork
-        if (ProviderManager.getInstance(context).getSupportsNextArtworkBlocking()) {
+        if (provider.supportsNextArtwork) {
             PendingIntent nextPendingIntent = PendingIntent.getBroadcast(context, 0,
                     new Intent(context, NewWallpaperNotificationReceiver.class)
                             .setAction(ACTION_NEXT_ARTWORK),

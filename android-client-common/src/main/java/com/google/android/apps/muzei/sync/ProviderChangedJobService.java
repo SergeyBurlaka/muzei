@@ -72,8 +72,10 @@ public class ProviderChangedJobService extends SimpleJobService {
             long lastLoadedTime = result.getLong(KEY_LAST_LOADED_TIME, 0L);
             Artwork currentArtwork = database.artworkDao().getCurrentArtworkBlocking();
             try (Cursor curArtwork = client.query(currentArtwork.imageUri,
-                    null, null, null, null)) {
-                if (curArtwork == null) {
+                    null, null, null, null);
+                Cursor allArtwork = client.query(contentUri,
+                        null,null, null, null)) {
+                if (curArtwork == null || allArtwork == null) {
                     return JobService.RESULT_FAIL_RETRY;
                 }
                 int loadFrequencySeconds = ProviderManager.getInstance(this).getLoadFrequencySeconds();
@@ -95,6 +97,18 @@ public class ProviderChangedJobService extends SimpleJobService {
                         .addConstraint(Constraint.ON_ANY_NETWORK)
                         .setTrigger(Trigger.executionWindow(loadFrequencySeconds / 10, loadFrequencySeconds))
                         .build());
+                // Update whether the provider supports the 'Next Artwork' button
+                int validArtworkCount = 0;
+                while (allArtwork.moveToNext()) {
+                    if (isValidArtwork(client, contentUri, allArtwork)) {
+                        validArtworkCount++;
+                    }
+                    if (validArtworkCount > 1) {
+                        break;
+                    }
+                }
+                provider.supportsNextArtwork = validArtworkCount > 1;
+                database.providerDao().update(provider);
                 return JobService.RESULT_SUCCESS;
             }
         } catch (RemoteException e) {

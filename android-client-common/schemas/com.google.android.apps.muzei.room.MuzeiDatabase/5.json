@@ -2,16 +2,22 @@
   "formatVersion": 1,
   "database": {
     "version": 5,
-    "identityHash": "5c39549b45ca82f8392450727ef062b0",
+    "identityHash": "8dd39f81ba83ce2f9f488f71de62332f",
     "entities": [
       {
         "tableName": "provider",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`componentName` TEXT NOT NULL, PRIMARY KEY(`componentName`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`componentName` TEXT NOT NULL, `supportsNextArtwork` INTEGER NOT NULL, PRIMARY KEY(`componentName`))",
         "fields": [
           {
             "fieldPath": "componentName",
             "columnName": "componentName",
             "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "supportsNextArtwork",
+            "columnName": "supportsNextArtwork",
+            "affinity": "INTEGER",
             "notNull": true
           }
         ],
@@ -163,7 +169,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, \"5c39549b45ca82f8392450727ef062b0\")"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, \"8dd39f81ba83ce2f9f488f71de62332f\")"
     ]
   }
 }

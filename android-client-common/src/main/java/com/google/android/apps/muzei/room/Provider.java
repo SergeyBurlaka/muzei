@@ -32,7 +32,9 @@ public class Provider {
     @TypeConverters({ComponentNameTypeConverter.class})
     @PrimaryKey
     @NonNull
-    public ComponentName componentName;
+    public final ComponentName componentName;
+
+    public boolean supportsNextArtwork = false;
 
     public Provider(@NonNull ComponentName componentName) {
         this.componentName = componentName;

@@ -19,6 +19,7 @@ import android.app.WallpaperManager;
 import android.arch.lifecycle.Lifecycle;
 import android.arch.lifecycle.LifecycleOwner;
 import android.arch.lifecycle.LifecycleRegistry;
+import android.arch.lifecycle.LiveData;
 import android.arch.lifecycle.Observer;
 import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
@@ -52,6 +53,7 @@ import org.greenrobot.eventbus.Subscribe;
 @RequiresApi(api = Build.VERSION_CODES.N)
 public class NextArtworkTileService extends TileService implements LifecycleOwner {
     private LifecycleRegistry mLifecycle;
+    private LiveData<Provider> mProviderLiveData;
     private boolean mWallpaperActive = false;
 
     @Override
@@ -74,14 +76,16 @@ public class NextArtworkTileService extends TileService implements LifecycleOwne
 
     @Override
     public void onStartListening() {
-        // Start listening for provider changes
-        MuzeiDatabase.getInstance(this).providerDao().getCurrentProvider()
-                .observe(this, new Observer<Provider>() {
-                    @Override
-                    public void onChanged(@Nullable final Provider provider) {
-                        updateTile();
-                    }
-                });
+        // Start listening for provider changes, which will include when a source
+        // starts or stops supporting the 'Next Artwork' command
+        mProviderLiveData = MuzeiDatabase.getInstance(this).providerDao().getCurrentProvider();
+        mProviderLiveData.observe(this, new Observer<Provider>() {
+            @Override
+            public void onChanged(@Nullable final Provider provider) {
+                updateTile(provider);
+            }
+        });
+
         // Check if the wallpaper is currently active
         EventBus.getDefault().register(this);
         WallpaperActiveStateChangedEvent e = EventBus.getDefault().getStickyEvent(
@@ -93,10 +97,10 @@ public class NextArtworkTileService extends TileService implements LifecycleOwne
     @Subscribe
     public void onEventMainThread(final WallpaperActiveStateChangedEvent e) {
         mWallpaperActive = e != null && e.isActive();
-        updateTile();
+        updateTile(mProviderLiveData.getValue());
     }
 
-    private void updateTile() {
+    private void updateTile(Provider provider) {
         final Tile tile = getQsTile();
         if (tile == null) {
             // We're outside of the onStartListening / onStopListening window
@@ -111,26 +115,21 @@ public class NextArtworkTileService extends TileService implements LifecycleOwne
             tile.updateTile();
             return;
         }
-        ProviderManager.getInstance(this).getSupportsNextArtwork(new ProviderManager.SupportNextArtworkCallback() {
-            @Override
-            public void onCallback(final boolean supportsNextArtwork) {
-                if (!mLifecycle.getCurrentState().isAtLeast(Lifecycle.State.STARTED)) {
-                    return;
-                }
-                if (supportsNextArtwork) {
-                    tile.setState(Tile.STATE_ACTIVE);
-                    tile.setLabel(getString(R.string.action_next_artwork));
-                    tile.setIcon(Icon.createWithResource(NextArtworkTileService.this,
-                            R.drawable.ic_notif_full_next_artwork));
-                } else {
-                    tile.setState(Tile.STATE_UNAVAILABLE);
-                    tile.setLabel(getString(R.string.action_next_artwork));
-                    tile.setIcon(Icon.createWithResource(NextArtworkTileService.this,
-                            R.drawable.ic_notif_full_next_artwork));
-                }
-                tile.updateTile();
-            }
-        });
+        if (provider == null) {
+            return;
+        }
+        if (provider.supportsNextArtwork) {
+            tile.setState(Tile.STATE_ACTIVE);
+            tile.setLabel(getString(R.string.action_next_artwork));
+            tile.setIcon(Icon.createWithResource(NextArtworkTileService.this,
+                    R.drawable.ic_notif_full_next_artwork));
+        } else {
+            tile.setState(Tile.STATE_UNAVAILABLE);
+            tile.setLabel(getString(R.string.action_next_artwork));
+            tile.setIcon(Icon.createWithResource(NextArtworkTileService.this,
+                    R.drawable.ic_notif_full_next_artwork));
+        }
+        tile.updateTile();
     }
 
     @Override

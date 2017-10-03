@@ -245,6 +245,7 @@ public class MuzeiProvider extends ContentProvider {
         }
         MatrixCursor c = new MatrixCursor(projection);
         Artwork artwork = MuzeiDatabase.getInstance(context).artworkDao().getCurrentArtworkBlocking();
+        Provider provider = MuzeiDatabase.getInstance(context).providerDao().getCurrentProviderBlocking();
         ProviderManager providerManager = ProviderManager.getInstance(context);
 
         MatrixCursor.RowBuilder row = c.newRow();
@@ -255,7 +256,7 @@ public class MuzeiProvider extends ContentProvider {
                 providerManager.getCurrentDescription());
         row.add(MuzeiContract.Sources.COLUMN_NAME_WANTS_NETWORK_AVAILABLE, false);
         row.add(MuzeiContract.Sources.COLUMN_NAME_SUPPORTS_NEXT_ARTWORK_COMMAND,
-                providerManager.getSupportsNextArtworkBlocking());
+                provider.supportsNextArtwork);
         row.add(MuzeiContract.Sources.COLUMN_NAME_COMMANDS,
                 UserCommandTypeConverter.commandsListToString(artwork.getCommandsBlocking(context)));
 

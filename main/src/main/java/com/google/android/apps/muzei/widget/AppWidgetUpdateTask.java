@@ -45,7 +45,7 @@ import com.google.android.apps.muzei.render.BitmapRegionLoader;
 import com.google.android.apps.muzei.render.ImageUtil;
 import com.google.android.apps.muzei.room.Artwork;
 import com.google.android.apps.muzei.room.MuzeiDatabase;
-import com.google.android.apps.muzei.sync.ProviderManager;
+import com.google.android.apps.muzei.room.Provider;
 
 import net.nurik.roman.muzei.R;
 
@@ -81,8 +81,9 @@ public class AppWidgetUpdateTask extends AsyncTask<Void,Void,Boolean> {
             // No preview to show
             return false;
         }
+        Provider provider = MuzeiDatabase.getInstance(mContext).providerDao().getCurrentProviderBlocking();
         Artwork artwork = MuzeiDatabase.getInstance(mContext).artworkDao().getCurrentArtworkBlocking();
-        if (artwork == null) {
+        if (provider == null || artwork == null) {
             Log.w(TAG, "No current artwork found");
             return false;
         }
@@ -94,8 +95,7 @@ public class AppWidgetUpdateTask extends AsyncTask<Void,Void,Boolean> {
         Uri imageUri = artwork.getContentUri();
         WallpaperActiveStateChangedEvent wasce = EventBus.getDefault().getStickyEvent(
                 WallpaperActiveStateChangedEvent.class);
-        boolean supportsNextArtwork = wasce != null && wasce.isActive() &&
-                ProviderManager.getInstance(mContext).getSupportsNextArtworkBlocking();
+        boolean supportsNextArtwork = wasce != null && wasce.isActive() && provider.supportsNextArtwork;
 
         // Update the widget(s) with the new artwork information
         PackageManager packageManager = mContext.getPackageManager();
