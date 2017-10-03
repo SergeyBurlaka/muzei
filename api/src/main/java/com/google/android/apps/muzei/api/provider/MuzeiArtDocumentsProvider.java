@@ -143,6 +143,10 @@ public class MuzeiArtDocumentsProvider extends DocumentsProvider {
                 throw new IllegalStateException("Authority " + providerAuthority +
                         " must belong to your package name, found " + providerInfo.packageName);
             }
+            if (!providerInfo.enabled) {
+                Log.i(TAG, "Skipping disabled MuzeiArtProvider " + providerAuthority);
+                continue;
+            }
             int artworkCount;
             Uri contentUri = MuzeiArtProvider.getContentUri(context,
                     new ComponentName(providerInfo.packageName, providerInfo.name));
