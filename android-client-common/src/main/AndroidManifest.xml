@@ -42,7 +42,7 @@
             android:permission="android.permission.BIND_JOB_SERVICE" />
 
         <service
-            android:name="com.google.android.apps.muzei.sync.ProviderSelectedJobService"
+            android:name="com.google.android.apps.muzei.sync.ProviderChangedJobService"
             android:exported="false">
             <intent-filter>
                 <action android:name="com.firebase.jobdispatcher.ACTION_EXECUTE" />

@@ -38,11 +38,14 @@ import android.util.Log;
 import com.firebase.jobdispatcher.FirebaseJobDispatcher;
 import com.firebase.jobdispatcher.GooglePlayDriver;
 import com.firebase.jobdispatcher.Lifetime;
+import com.firebase.jobdispatcher.ObservedUri;
+import com.firebase.jobdispatcher.Trigger;
 import com.google.android.apps.muzei.api.provider.MuzeiArtProvider;
 import com.google.android.apps.muzei.room.MuzeiDatabase;
 import com.google.android.apps.muzei.room.Provider;
 import com.google.android.apps.muzei.util.ContentProviderClientCompat;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.Executor;
@@ -135,9 +138,19 @@ public class ProviderManager extends MutableLiveData<Provider>
         if (hasActiveObservers() && getValue() != null) {
             FirebaseJobDispatcher jobDispatcher = new FirebaseJobDispatcher(new GooglePlayDriver(mContext));
             jobDispatcher.mustSchedule(jobDispatcher.newJobBuilder()
-                    .setService(ProviderSelectedJobService.class)
+                    .setService(ProviderChangedJobService.class)
                     .setTag("selected")
                     .setLifetime(Lifetime.FOREVER)
+                    .build());
+            // Listen for MuzeiArtProvider changes
+            Uri contentUri = MuzeiArtProvider.getContentUri(mContext, getValue().componentName);
+            jobDispatcher.mustSchedule(jobDispatcher.newJobBuilder()
+                    .setService(ProviderChangedJobService.class)
+                    .setTag("changed")
+                    .setLifetime(Lifetime.FOREVER)
+                    .setRecurring(true)
+                    .setTrigger(Trigger.contentUriTrigger(Collections.singletonList(
+                            new ObservedUri(contentUri, ObservedUri.Flags.FLAG_NOTIFY_FOR_DESCENDANTS))))
                     .build());
         }
     }
@@ -145,6 +158,7 @@ public class ProviderManager extends MutableLiveData<Provider>
     @Override
     protected void onInactive() {
         FirebaseJobDispatcher jobDispatcher = new FirebaseJobDispatcher(new GooglePlayDriver(mContext));
+        jobDispatcher.cancel("changed");
         jobDispatcher.cancel("scheduled");
     }
 

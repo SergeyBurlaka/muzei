@@ -48,8 +48,8 @@ import static com.google.android.apps.muzei.api.internal.ProtocolConstants.METHO
  * Job responsible for setting up the recurring artwork load from a {@link MuzeiArtProvider} and kicking off
  * an immediate load if the current artwork is invalid or we're overdue for loading artwork.
  */
-public class ProviderSelectedJobService extends SimpleJobService {
-    private static final String TAG = "ProviderSelectedJob";
+public class ProviderChangedJobService extends SimpleJobService {
+    private static final String TAG = "ProviderChangedJob";
 
     @Override
     public int onRunJob(final JobParameters job) {
