@@ -18,4 +18,13 @@
     <string name="legacy_source_title">Legacy Plugins</string>
     <string name="legacy_source_description">Select plugins built with the legacy API</string>
     <string name="legacy_source_unavailable">Your selected source is unavailable. Switching to the default source.</string>
+
+    <string name="legacy_settings_source_settings">Customize source</string>
+
+    <string name="legacy_settings_source_target_too_high_title">This source is disabled</string>
+    <string name="legacy_settings_source_target_too_high_message">Muzei\'s legacy API is not compatible with apps
+        such as this one that target Android 8.0 (API 26).</string>
+    <string name="legacy_settings_source_target_too_high_send_feedback">Send %s feedback</string>
+    <string name="legacy_settings_source_target_too_high_learn_more">Learn more</string>
+    <string name="legacy_settings_source_target_too_high_dismiss">Got it</string>
 </resources>

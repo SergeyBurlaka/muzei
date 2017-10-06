@@ -34,6 +34,10 @@
             <intent-filter>
                 <action android:name="com.google.android.apps.muzei.api.MuzeiArtProvider" />
             </intent-filter>
+            <meta-data android:name="settingsActivity"
+                       android:value="com.google.android.apps.muzei.legacy.LegacySettingsActivity" />
+            <meta-data android:name="setupActivity"
+                       android:value="com.google.android.apps.muzei.legacy.LegacySetupActivity" />
             <meta-data android:name="color" android:value="@color/legacy_color" />
         </provider>
         <provider
@@ -51,5 +55,14 @@
             android:name="com.google.android.apps.muzei.legacy.SourceSubscriberService"
             android:exported="true"
             tools:ignore="ExportedService"/>
+
+        <activity android:name="com.google.android.apps.muzei.legacy.LegacySetupActivity"
+                  android:label="@string/legacy_source_title"
+                  android:theme="@android:style/Theme.Translucent.NoTitleBar"
+                  android:exported="true" />
+        <activity android:name="com.google.android.apps.muzei.legacy.LegacySettingsActivity"
+                  android:label="@string/legacy_source_title"
+                  android:theme="@style/Theme.AppCompat"
+                  android:exported="true" />
     </application>
 </manifest>
