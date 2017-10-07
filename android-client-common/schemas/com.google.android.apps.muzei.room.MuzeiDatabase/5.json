@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 5,
-    "identityHash": "8dd39f81ba83ce2f9f488f71de62332f",
+    "identityHash": "530e0e4dbcc1dbd531fe63ec3e22dd70",
     "entities": [
       {
         "tableName": "provider",
@@ -102,18 +102,12 @@
         "foreignKeys": []
       },
       {
-        "tableName": "sources",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`_id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `component_name` TEXT NOT NULL, `selected` INTEGER NOT NULL, `description` TEXT, `network` INTEGER NOT NULL, `supports_next_artwork` INTEGER NOT NULL, `commands` TEXT NOT NULL)",
+        "tableName": "Source",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`componentName` TEXT NOT NULL, `selected` INTEGER NOT NULL, `label` TEXT, `defaultDescription` TEXT, `description` TEXT, `color` INTEGER NOT NULL, `targetSdkVersion` INTEGER NOT NULL, `settingsActivity` TEXT, `setupActivity` TEXT, `wantsNetworkAvailable` INTEGER NOT NULL, `supportsNextArtwork` INTEGER NOT NULL, `commands` TEXT NOT NULL, PRIMARY KEY(`componentName`))",
         "fields": [
           {
-            "fieldPath": "id",
-            "columnName": "_id",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
             "fieldPath": "componentName",
-            "columnName": "component_name",
+            "columnName": "componentName",
             "affinity": "TEXT",
             "notNull": true
           },
@@ -124,20 +118,56 @@
             "notNull": true
           },
           {
+            "fieldPath": "label",
+            "columnName": "label",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "defaultDescription",
+            "columnName": "defaultDescription",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
             "fieldPath": "description",
             "columnName": "description",
             "affinity": "TEXT",
             "notNull": false
           },
           {
+            "fieldPath": "color",
+            "columnName": "color",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "targetSdkVersion",
+            "columnName": "targetSdkVersion",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "settingsActivity",
+            "columnName": "settingsActivity",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "setupActivity",
+            "columnName": "setupActivity",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
             "fieldPath": "wantsNetworkAvailable",
-            "columnName": "network",
+            "columnName": "wantsNetworkAvailable",
             "affinity": "INTEGER",
             "notNull": true
           },
           {
             "fieldPath": "supportsNextArtwork",
-            "columnName": "supports_next_artwork",
+            "columnName": "supportsNextArtwork",
             "affinity": "INTEGER",
             "notNull": true
           },
@@ -150,26 +180,17 @@
         ],
         "primaryKey": {
           "columnNames": [
-            "_id"
+            "componentName"
           ],
-          "autoGenerate": true
+          "autoGenerate": false
         },
-        "indices": [
-          {
-            "name": "index_sources_component_name",
-            "unique": true,
-            "columnNames": [
-              "component_name"
-            ],
-            "createSql": "CREATE UNIQUE INDEX `index_sources_component_name` ON `${TABLE_NAME}` (`component_name`)"
-          }
-        ],
+        "indices": [],
         "foreignKeys": []
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, \"8dd39f81ba83ce2f9f488f71de62332f\")"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, \"530e0e4dbcc1dbd531fe63ec3e22dd70\")"
     ]
   }
 }

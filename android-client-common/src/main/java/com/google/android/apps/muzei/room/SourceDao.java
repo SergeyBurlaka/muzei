@@ -18,6 +18,7 @@ package com.google.android.apps.muzei.room;
 
 import android.arch.lifecycle.LiveData;
 import android.arch.persistence.room.Dao;
+import android.arch.persistence.room.Delete;
 import android.arch.persistence.room.Insert;
 import android.arch.persistence.room.Query;
 import android.arch.persistence.room.TypeConverters;
@@ -36,23 +37,37 @@ public interface SourceDao {
     @Insert
     void insert(Source source);
 
-    @TypeConverters(ComponentNameTypeConverter.class)
-    @Query("SELECT * FROM sources WHERE component_name = :componentName")
-    LiveData<Source> getSourceByComponentName(ComponentName componentName);
+    @Query("SELECT * FROM source")
+    LiveData<List<Source>> getSources();
 
     @TypeConverters(ComponentNameTypeConverter.class)
-    @Query("SELECT * FROM sources WHERE component_name = :componentName")
+    @Query("SELECT componentName FROM source")
+    List<ComponentName> getSourceComponentNamesBlocking();
+
+    @TypeConverters(ComponentNameTypeConverter.class)
+    @Query("SELECT componentName FROM source WHERE componentName LIKE :packageName || '%'")
+    List<ComponentName> getSourcesComponentNamesByPackageNameBlocking(String packageName);
+
+    @TypeConverters(ComponentNameTypeConverter.class)
+    @Query("SELECT * FROM source WHERE componentName = :componentName")
     Source getSourceByComponentNameBlocking(ComponentName componentName);
 
-    @Query("SELECT * FROM sources WHERE selected=1 ORDER BY component_name")
+    @Query("SELECT * FROM source WHERE selected=1 ORDER BY componentName")
     LiveData<Source> getCurrentSource();
 
-    @Query("SELECT * FROM sources WHERE selected=1 ORDER BY component_name")
+    @Query("SELECT * FROM source WHERE selected=1 ORDER BY componentName")
     Source getCurrentSourceBlocking();
 
-    @Query("SELECT * FROM sources WHERE selected=1 AND network=1")
+    @Query("SELECT * FROM source WHERE selected=1 AND wantsNetworkAvailable=1")
     LiveData<List<Source>> getCurrentSourcesThatWantNetwork();
 
     @Update
     void update(Source source);
+
+    @Delete
+    void delete(Source source);
+
+    @TypeConverters({ComponentNameTypeConverter.class})
+    @Query("DELETE FROM source WHERE componentName IN (:componentNames)")
+    void deleteAll(ComponentName[] componentNames);
 }

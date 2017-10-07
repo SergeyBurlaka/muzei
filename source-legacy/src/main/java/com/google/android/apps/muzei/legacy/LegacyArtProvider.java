@@ -18,8 +18,6 @@ package com.google.android.apps.muzei.legacy;
 
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.content.pm.ServiceInfo;
 import android.support.annotation.NonNull;
 import android.text.TextUtils;
 import android.util.Log;
@@ -60,27 +58,10 @@ public class LegacyArtProvider extends MuzeiArtProvider {
         if (source == null) {
             return "No source selected";
         }
-        ServiceInfo sourceInfo;
-        try {
-            sourceInfo = context.getPackageManager().getServiceInfo(source.componentName, 0);
-        } catch (PackageManager.NameNotFoundException e) {
-            Log.e(TAG, "Unable to retrieve source information", e);
-            LegacySourceManager.invalidateSelectedSource(context);
-            return "No selected source";
-        }
-        String sourceName = "";
-        CharSequence sourceLabel = sourceInfo.loadLabel(context.getPackageManager());
-        if (!TextUtils.isEmpty(sourceLabel)) {
-            sourceName = sourceLabel.toString();
-        }
-        String description = source.description;
-        if (TextUtils.isEmpty(description)) {
-            // Fallback to the description on the source
-            description = sourceInfo.descriptionRes != 0 ? context.getString(sourceInfo.descriptionRes) : "";
-        }
+        String description = source.getDescription();
         return !TextUtils.isEmpty(description)
-                ? (!TextUtils.isEmpty(sourceName) ? sourceName + ": " : "") + description
-                : sourceName;
+                ? (!TextUtils.isEmpty(source.label) ? source.label + ": " : "") + description
+                : source.label;
     }
 
     @NonNull

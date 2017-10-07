@@ -245,6 +245,26 @@ public abstract class MuzeiDatabase extends RoomDatabase {
             File artworkDirectory = new File(mContext.getFilesDir(), "artwork");
             //noinspection ResultOfMethodCallIgnored
             artworkDirectory.delete();
+
+            // Handle Source
+            database.execSQL("CREATE TABLE source ("
+                    + "componentName TEXT PRIMARY KEY NOT NULL,"
+                    + "label TEXT,"
+                    + "defaultDescription TEXT,"
+                    + "description TEXT,"
+                    + "color INTEGER NOT NULL,"
+                    + "targetSdkVersion INTEGER NOT NULL,"
+                    + "settingsActivity TEXT, "
+                    + "setupActivity TEXT,"
+                    + "selected INTEGER NOT NULL,"
+                    + "wantsNetworkAvailable INTEGER NOT NULL,"
+                    + "supportsNextArtwork INTEGER NOT NULL,"
+                    + "commands TEXT NOT NULL)");
+            database.execSQL("INSERT INTO source"
+                    + "(componentName, description, selected, wantsNetworkAvailable, supportsNextArtwork, commands) "
+                    + "SELECT component_name, description, selected, network, supports_next_artwork, commands"
+                    + "FROM sources");
+            database.execSQL("DROP TABLE sources");
         }
     }
 }

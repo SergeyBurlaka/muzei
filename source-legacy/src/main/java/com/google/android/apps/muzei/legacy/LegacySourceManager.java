@@ -30,17 +30,27 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
+import android.content.pm.ServiceInfo;
+import android.content.res.Resources;
+import android.graphics.Color;
+import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Toast;
 
+import com.google.android.apps.muzei.api.MuzeiArtSource;
 import com.google.android.apps.muzei.room.MuzeiDatabase;
 import com.google.android.apps.muzei.room.Provider;
 import com.google.android.apps.muzei.room.Source;
 import com.google.android.apps.muzei.room.SourceDao;
 import com.google.firebase.analytics.FirebaseAnalytics;
+
+import java.util.HashSet;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 import static com.google.android.apps.muzei.api.internal.ProtocolConstants.ACTION_SUBSCRIBE;
 import static com.google.android.apps.muzei.api.internal.ProtocolConstants.EXTRA_SUBSCRIBER_COMPONENT;
@@ -55,6 +65,8 @@ public class LegacySourceManager implements LifecycleObserver, Observer<Provider
     private static final String USER_PROPERTY_SELECTED_SOURCE = "selected_source";
     private static final String USER_PROPERTY_SELECTED_SOURCE_PACKAGE = "selected_source_package";
 
+    private Executor mExecutor = Executors.newSingleThreadExecutor();
+
     private final BroadcastReceiver mSourcePackageChangeReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(final Context context, Intent intent) {
@@ -62,6 +74,28 @@ public class LegacySourceManager implements LifecycleObserver, Observer<Provider
                 return;
             }
             final String packageName = intent.getData().getSchemeSpecificPart();
+            // Update the sources from the changed package
+            mExecutor.execute(new Runnable() {
+                @Override
+                public void run() {
+                    Intent queryIntent = new Intent(MuzeiArtSource.ACTION_MUZEI_ART_SOURCE);
+                    queryIntent.setPackage(packageName);
+                    PackageManager pm = mContext.getPackageManager();
+                    MuzeiDatabase database = MuzeiDatabase.getInstance(mContext);
+                    database.beginTransaction();
+                    HashSet<ComponentName> existingSources = new HashSet<>(database.sourceDao()
+                            .getSourcesComponentNamesByPackageNameBlocking(packageName));
+                    for (ResolveInfo ri : pm.queryIntentServices(queryIntent, PackageManager.GET_META_DATA)) {
+                        existingSources.remove(new ComponentName(ri.serviceInfo.packageName,
+                                ri.serviceInfo.name));
+                        updateSourceFromServiceInfo(ri.serviceInfo);
+                    }
+                    // Delete sources in the database that have since been removed
+                    database.sourceDao().deleteAll(existingSources.toArray(new ComponentName[0]));
+                    database.setTransactionSuccessful();
+                    database.endTransaction();
+                }
+            });
             final PendingResult pendingResult = goAsync();
             final LiveData<Source> sourceLiveData = MuzeiDatabase.getInstance(context).sourceDao()
                     .getCurrentSource();
@@ -81,9 +115,11 @@ public class LegacySourceManager implements LifecycleObserver, Observer<Provider
                                 }
 
                                 // Some other change.
-                                Log.i(TAG, "Source package changed or replaced. Re-subscribing to " +
-                                        source.componentName);
-                                subscribe(source);
+                                if (mLifecycle.getCurrentState().isAtLeast(Lifecycle.State.STARTED)) {
+                                    Log.i(TAG, "Source package changed or replaced. Re-subscribing to " +
+                                            source.componentName);
+                                    subscribe(source);
+                                }
                             }
                             pendingResult.finish();
                         }
@@ -128,23 +164,6 @@ public class LegacySourceManager implements LifecycleObserver, Observer<Provider
         mContext = context;
         mLifecycle = new LifecycleRegistry(this);
         mLifecycle.addObserver(new NetworkChangeObserver(mContext));
-        mLifecycle.addObserver(new LifecycleObserver() {
-            @OnLifecycleEvent(Lifecycle.Event.ON_START)
-            public void onLegacyArtProviderSelected() {
-                // Register for package change events
-                IntentFilter packageChangeFilter = new IntentFilter();
-                packageChangeFilter.addDataScheme("package");
-                packageChangeFilter.addAction(Intent.ACTION_PACKAGE_CHANGED);
-                packageChangeFilter.addAction(Intent.ACTION_PACKAGE_REPLACED);
-                packageChangeFilter.addAction(Intent.ACTION_PACKAGE_REMOVED);
-                mContext.registerReceiver(mSourcePackageChangeReceiver, packageChangeFilter);
-            }
-
-            @OnLifecycleEvent(Lifecycle.Event.ON_STOP)
-            public void onLegacyArtProviderUnselected() {
-                mContext.unregisterReceiver(mSourcePackageChangeReceiver);
-            }
-        });
         new SubscriberLiveData().observe(this, new Observer<Source>() {
             @Override
             public void onChanged(@Nullable final Source source) {
@@ -166,6 +185,111 @@ public class LegacySourceManager implements LifecycleObserver, Observer<Provider
         // When Muzei is enabled, we start listening for the current provider
         providerLiveData = MuzeiDatabase.getInstance(mContext).providerDao().getCurrentProvider();
         providerLiveData.observeForever(this);
+
+        // Register for package change events so we can keep track of
+        // what legacy sources are available
+        IntentFilter packageChangeFilter = new IntentFilter();
+        packageChangeFilter.addDataScheme("package");
+        packageChangeFilter.addAction(Intent.ACTION_PACKAGE_ADDED);
+        packageChangeFilter.addAction(Intent.ACTION_PACKAGE_CHANGED);
+        packageChangeFilter.addAction(Intent.ACTION_PACKAGE_REPLACED);
+        packageChangeFilter.addAction(Intent.ACTION_PACKAGE_REMOVED);
+        mContext.registerReceiver(mSourcePackageChangeReceiver, packageChangeFilter);
+
+        // Update the available sources in case we missed anything while Muzei was disabled
+        mExecutor.execute(new Runnable() {
+            @Override
+            public void run() {
+                Intent queryIntent = new Intent(MuzeiArtSource.ACTION_MUZEI_ART_SOURCE);
+                PackageManager pm = mContext.getPackageManager();
+                MuzeiDatabase database = MuzeiDatabase.getInstance(mContext);
+                database.beginTransaction();
+                HashSet<ComponentName> existingSources = new HashSet<>(database.sourceDao()
+                        .getSourceComponentNamesBlocking());
+                for (ResolveInfo ri : pm.queryIntentServices(queryIntent, PackageManager.GET_META_DATA)) {
+                    existingSources.remove(new ComponentName(ri.serviceInfo.packageName,
+                            ri.serviceInfo.name));
+                    updateSourceFromServiceInfo(ri.serviceInfo);
+                }
+                // Delete sources in the database that have since been removed
+                database.sourceDao().deleteAll(existingSources.toArray(new ComponentName[0]));
+                database.setTransactionSuccessful();
+                database.endTransaction();
+            }
+        });
+    }
+
+    private void updateSourceFromServiceInfo(ServiceInfo info) {
+        PackageManager pm = mContext.getPackageManager();
+        Bundle metaData = info.metaData;
+        ComponentName componentName = new ComponentName(info.packageName, info.name);
+        SourceDao sourceDao = MuzeiDatabase.getInstance(mContext).sourceDao();
+        Source existingSource = sourceDao.getSourceByComponentNameBlocking(componentName);
+        // Filter out invalid sources
+        if (!info.isEnabled()) {
+            if (existingSource != null) {
+                sourceDao.delete(existingSource);
+            }
+            return;
+        }
+        Source source = existingSource != null ? existingSource : new Source(componentName);
+        source.label = info.loadLabel(pm).toString();
+        source.targetSdkVersion = info.applicationInfo.targetSdkVersion;
+        if (info.descriptionRes != 0) {
+            try {
+                Context packageContext = mContext.createPackageContext(
+                        source.componentName.getPackageName(), 0);
+                Resources packageRes = packageContext.getResources();
+                source.defaultDescription = packageRes.getString(info.descriptionRes);
+            } catch (PackageManager.NameNotFoundException|Resources.NotFoundException e) {
+                Log.e(TAG, "Can't read package resources for source " + source.componentName);
+            }
+        }
+        source.color = Color.WHITE;
+        if (metaData != null) {
+            String settingsActivity = metaData.getString("settingsActivity");
+            if (!TextUtils.isEmpty(settingsActivity)) {
+                source.settingsActivity = ComponentName.unflattenFromString(
+                        info.packageName + "/" + settingsActivity);
+            }
+
+            String setupActivity = metaData.getString("setupActivity");
+            if (!TextUtils.isEmpty(setupActivity)) {
+                source.setupActivity = ComponentName.unflattenFromString(
+                        info.packageName + "/" + setupActivity);
+            }
+
+            source.color = metaData.getInt("color", source.color);
+
+            try {
+                float[] hsv = new float[3];
+                Color.colorToHSV(source.color, hsv);
+                boolean adjust = false;
+                if (hsv[2] < 0.8f) {
+                    hsv[2] = 0.8f;
+                    adjust = true;
+                }
+                if (hsv[1] > 0.4f) {
+                    hsv[1] = 0.4f;
+                    adjust = true;
+                }
+                if (adjust) {
+                    source.color = Color.HSVToColor(hsv);
+                }
+                if (Color.alpha(source.color) != 255) {
+                    source.color = Color.argb(255,
+                            Color.red(source.color),
+                            Color.green(source.color),
+                            Color.blue(source.color));
+                }
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+        if (existingSource == null) {
+            sourceDao.insert(source);
+        } else {
+            sourceDao.update(source);
+        }
     }
 
     @Override
@@ -182,6 +306,7 @@ public class LegacySourceManager implements LifecycleObserver, Observer<Provider
     public void onMuzeiDisabled() {
         mLifecycle.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY);
         providerLiveData.removeObserver(this);
+        mContext.unregisterReceiver(mSourcePackageChangeReceiver);
     }
 
     static void selectSource(final Context context, @NonNull final ComponentName source) {
