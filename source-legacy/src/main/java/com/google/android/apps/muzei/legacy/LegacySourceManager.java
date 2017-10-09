@@ -67,6 +67,42 @@ public class LegacySourceManager implements LifecycleObserver, Observer<Provider
 
     private Executor mExecutor = Executors.newSingleThreadExecutor();
 
+    private class UpdateSourcesRunnable implements Runnable {
+        private final String mPackageName;
+
+        UpdateSourcesRunnable() {
+            this(null);
+        }
+
+        UpdateSourcesRunnable(String packageName) {
+            mPackageName = packageName;
+        }
+
+        @Override
+        public void run() {
+            @SuppressWarnings("deprecation")
+            Intent queryIntent = new Intent(MuzeiArtSource.ACTION_MUZEI_ART_SOURCE);
+            if (mPackageName != null) {
+                queryIntent.setPackage(mPackageName);
+            }
+            PackageManager pm = mContext.getPackageManager();
+            MuzeiDatabase database = MuzeiDatabase.getInstance(mContext);
+            database.beginTransaction();
+            HashSet<ComponentName> existingSources = new HashSet<>(mPackageName != null
+                    ? database.sourceDao().getSourcesComponentNamesByPackageNameBlocking(mPackageName)
+                    : database.sourceDao().getSourceComponentNamesBlocking());
+            for (ResolveInfo ri : pm.queryIntentServices(queryIntent, PackageManager.GET_META_DATA)) {
+                existingSources.remove(new ComponentName(ri.serviceInfo.packageName,
+                        ri.serviceInfo.name));
+                updateSourceFromServiceInfo(ri.serviceInfo);
+            }
+            // Delete sources in the database that have since been removed
+            database.sourceDao().deleteAll(existingSources.toArray(new ComponentName[0]));
+            database.setTransactionSuccessful();
+            database.endTransaction();
+        }
+    }
+
     private final BroadcastReceiver mSourcePackageChangeReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(final Context context, Intent intent) {
@@ -75,28 +111,7 @@ public class LegacySourceManager implements LifecycleObserver, Observer<Provider
             }
             final String packageName = intent.getData().getSchemeSpecificPart();
             // Update the sources from the changed package
-            mExecutor.execute(new Runnable() {
-                @Override
-                public void run() {
-                    @SuppressWarnings("deprecation")
-                    Intent queryIntent = new Intent(MuzeiArtSource.ACTION_MUZEI_ART_SOURCE);
-                    queryIntent.setPackage(packageName);
-                    PackageManager pm = mContext.getPackageManager();
-                    MuzeiDatabase database = MuzeiDatabase.getInstance(mContext);
-                    database.beginTransaction();
-                    HashSet<ComponentName> existingSources = new HashSet<>(database.sourceDao()
-                            .getSourcesComponentNamesByPackageNameBlocking(packageName));
-                    for (ResolveInfo ri : pm.queryIntentServices(queryIntent, PackageManager.GET_META_DATA)) {
-                        existingSources.remove(new ComponentName(ri.serviceInfo.packageName,
-                                ri.serviceInfo.name));
-                        updateSourceFromServiceInfo(ri.serviceInfo);
-                    }
-                    // Delete sources in the database that have since been removed
-                    database.sourceDao().deleteAll(existingSources.toArray(new ComponentName[0]));
-                    database.setTransactionSuccessful();
-                    database.endTransaction();
-                }
-            });
+            mExecutor.execute(new UpdateSourcesRunnable(packageName));
             final PendingResult pendingResult = goAsync();
             final LiveData<Source> sourceLiveData = MuzeiDatabase.getInstance(context).sourceDao()
                     .getCurrentSource();
@@ -198,27 +213,7 @@ public class LegacySourceManager implements LifecycleObserver, Observer<Provider
         mContext.registerReceiver(mSourcePackageChangeReceiver, packageChangeFilter);
 
         // Update the available sources in case we missed anything while Muzei was disabled
-        mExecutor.execute(new Runnable() {
-            @Override
-            public void run() {
-                @SuppressWarnings("deprecation")
-                Intent queryIntent = new Intent(MuzeiArtSource.ACTION_MUZEI_ART_SOURCE);
-                PackageManager pm = mContext.getPackageManager();
-                MuzeiDatabase database = MuzeiDatabase.getInstance(mContext);
-                database.beginTransaction();
-                HashSet<ComponentName> existingSources = new HashSet<>(database.sourceDao()
-                        .getSourceComponentNamesBlocking());
-                for (ResolveInfo ri : pm.queryIntentServices(queryIntent, PackageManager.GET_META_DATA)) {
-                    existingSources.remove(new ComponentName(ri.serviceInfo.packageName,
-                            ri.serviceInfo.name));
-                    updateSourceFromServiceInfo(ri.serviceInfo);
-                }
-                // Delete sources in the database that have since been removed
-                database.sourceDao().deleteAll(existingSources.toArray(new ComponentName[0]));
-                database.setTransactionSuccessful();
-                database.endTransaction();
-            }
-        });
+        mExecutor.execute(new UpdateSourcesRunnable());
     }
 
     private void updateSourceFromServiceInfo(ServiceInfo info) {
