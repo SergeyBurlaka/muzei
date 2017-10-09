@@ -48,6 +48,7 @@ import java.util.TimeZone;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 
+@SuppressWarnings("deprecation")
 public class FeaturedArtSource extends RemoteMuzeiArtSource {
     private static final String TAG = "FeaturedArtSource";
     private static final String SOURCE_NAME = "FeaturedArt";

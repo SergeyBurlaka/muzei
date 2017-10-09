@@ -38,6 +38,7 @@ import retrofit2.converter.gson.GsonConverterFactory;
 import static com.example.muzei.examplesource500px.FiveHundredPxService.Photo;
 import static com.example.muzei.examplesource500px.FiveHundredPxService.PhotosResponse;
 
+@SuppressWarnings("deprecation")
 public class FiveHundredPxExampleArtSource extends RemoteMuzeiArtSource {
     private static final String TAG = "500pxExample";
     private static final String SOURCE_NAME = "FiveHundredPxExampleArtSource";

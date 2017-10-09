@@ -43,8 +43,10 @@ public class LegacySetupActivity extends FragmentActivity {
                             // Push the user to the LegacySettingsActivity to select a source
                             Intent intent = new Intent(LegacySetupActivity.this,
                                     LegacySettingsActivity.class);
+                            //noinspection deprecation
                             if (getIntent().getBooleanExtra(
                                     MuzeiArtSource.EXTRA_FROM_MUZEI_SETTINGS, false)) {
+                                //noinspection deprecation
                                 intent.putExtra(MuzeiArtSource.EXTRA_FROM_MUZEI_SETTINGS, true);
                             }
                             startActivityForResult(intent, REQUEST_CHOOSE_SOURCE);

@@ -78,6 +78,7 @@ public class LegacySourceManager implements LifecycleObserver, Observer<Provider
             mExecutor.execute(new Runnable() {
                 @Override
                 public void run() {
+                    @SuppressWarnings("deprecation")
                     Intent queryIntent = new Intent(MuzeiArtSource.ACTION_MUZEI_ART_SOURCE);
                     queryIntent.setPackage(packageName);
                     PackageManager pm = mContext.getPackageManager();
@@ -200,6 +201,7 @@ public class LegacySourceManager implements LifecycleObserver, Observer<Provider
         mExecutor.execute(new Runnable() {
             @Override
             public void run() {
+                @SuppressWarnings("deprecation")
                 Intent queryIntent = new Intent(MuzeiArtSource.ACTION_MUZEI_ART_SOURCE);
                 PackageManager pm = mContext.getPackageManager();
                 MuzeiDatabase database = MuzeiDatabase.getInstance(mContext);
@@ -225,8 +227,11 @@ public class LegacySourceManager implements LifecycleObserver, Observer<Provider
         ComponentName componentName = new ComponentName(info.packageName, info.name);
         SourceDao sourceDao = MuzeiDatabase.getInstance(mContext).sourceDao();
         Source existingSource = sourceDao.getSourceByComponentNameBlocking(componentName);
-        // Filter out invalid sources
-        if (!info.isEnabled()) {
+        // Filter out invalid sources. This can be due any of the following conditions:
+        // 1. The source being disabled
+        // 2. The source having a replacement MuzeiArtProvider that should be used instead
+        if (!info.isEnabled() ||
+                (metaData != null && metaData.containsKey("replacement"))) {
             if (existingSource != null) {
                 sourceDao.delete(existingSource);
             }

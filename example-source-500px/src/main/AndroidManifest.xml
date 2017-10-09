@@ -26,6 +26,18 @@
     <application android:allowBackup="true"
         android:label="@string/app_name">
 
+        <!-- Replaced by FiveHundredPxExampleArtProvider -->
+        <service android:name=".FiveHundredPxExampleArtSource"
+                 android:label="@string/source_name"
+                 android:description="@string/source_description"
+                 android:icon="@drawable/ic_source">
+            <intent-filter>
+                <action android:name="com.google.android.apps.muzei.api.MuzeiArtSource" />
+            </intent-filter>
+            <meta-data android:name="color" android:value="#fa0" />
+            <meta-data android:name="replacement" android:value=".FiveHundredPxExampleArtProvider" />
+        </service>
+
         <provider
             android:name=".FiveHundredPxExampleArtProvider"
             android:authorities="com.example.muzei.examplesource500px"

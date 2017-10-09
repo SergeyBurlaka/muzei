@@ -27,7 +27,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.database.sqlite.SQLiteConstraintException;
 import android.support.annotation.NonNull;
+import android.content.pm.PackageManager;
+import android.content.pm.ServiceInfo;
+import android.database.Cursor;
+import android.os.Bundle;
 import android.support.annotation.Nullable;
+import android.text.TextUtils;
 
 import com.google.android.apps.muzei.api.MuzeiContract;
 import com.google.android.apps.muzei.sync.ProviderManager;
@@ -228,6 +233,28 @@ public abstract class MuzeiDatabase extends RoomDatabase {
             database.execSQL("CREATE TABLE provider ("
                     + "componentName TEXT PRIMARY KEY NOT NULL,"
                     + "supportsNextArtwork INTEGER NOT NULL)");
+            // Try to populate the provider table with an initial provider
+            // by seeing if the current source has a replacement provider available
+            try (Cursor selectedSource = database.query("SELECT component_name FROM sources WHERE selected=1")) {
+                if (selectedSource != null && selectedSource.moveToFirst()) {
+                    ComponentName componentName = ComponentName.unflattenFromString(
+                            selectedSource.getString(0));
+                    ServiceInfo info = mContext.getPackageManager().getServiceInfo(componentName,
+                            PackageManager.GET_META_DATA);
+                    Bundle metadata = info.metaData;
+                    if (metadata != null) {
+                        String replacement = metadata.getString("replacement");
+                        if (!TextUtils.isEmpty(replacement)) {
+                            ComponentName replacementName = ComponentName.unflattenFromString(
+                                    info.packageName + "/" + replacement);
+                            database.execSQL("INSERT INTO provider (componentName) "
+                                    +"VALUES (" + replacementName.flattenToShortString() + ")");
+                        }
+                    }
+                }
+            } catch (PackageManager.NameNotFoundException e) {
+                // Couldn't find the selected source, so there's nothing more to do
+            }
 
             // Handle Artwork
             database.execSQL("DROP TABLE artwork");

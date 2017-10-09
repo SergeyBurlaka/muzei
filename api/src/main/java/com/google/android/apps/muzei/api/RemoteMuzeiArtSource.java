@@ -54,6 +54,9 @@ import android.util.Log;
  * &lt;uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" /&gt;
  * &lt;uses-permission android:name="android.permission.WAKE_LOCK" /&gt;
  * </pre>
+ * @deprecated You should instead implement a {@link com.google.android.apps.muzei.api.provider.MuzeiArtProvider}
+ * and set it as the replacement for an existing MuzeiArtSource via a <code>&lt;meta-data
+ * android:name="replacement" android:value=".ExampleArtProvider"&gt;</code> element for each RemoteMuzeiArtSource.
  */
 public abstract class RemoteMuzeiArtSource extends MuzeiArtSource {
     private static final String TAG = "MuzeiArtSource";

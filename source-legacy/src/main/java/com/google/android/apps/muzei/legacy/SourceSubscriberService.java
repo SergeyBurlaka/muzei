@@ -85,6 +85,7 @@ public class SourceSubscriberService extends IntentService {
         int numSourceActions = state.getNumUserCommands();
         for (int i = 0; i < numSourceActions; i++) {
             UserCommand command = state.getUserCommandAt(i);
+            //noinspection deprecation
             if (command.getId() == MuzeiArtSource.BUILTIN_COMMAND_ID_NEXT_ARTWORK) {
                 source.supportsNextArtwork = true;
             } else {

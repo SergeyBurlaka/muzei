@@ -201,6 +201,9 @@ import static com.google.android.apps.muzei.api.internal.ProtocolConstants.EXTRA
  * element in the manifest will be used.
  *
  * @see RemoteMuzeiArtSource
+ * @deprecated You should instead implement a {@link com.google.android.apps.muzei.api.provider.MuzeiArtProvider}
+ * and set it as the replacement for an existing MuzeiArtSource via a <code>&lt;meta-data
+ * android:name="replacement" android:value=".ExampleArtProvider"&gt;</code> element for each MuzeiArtSource.
  */
 public abstract class MuzeiArtSource extends Service {
     private static final String TAG = "MuzeiArtSource";

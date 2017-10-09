@@ -57,6 +57,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 
+@SuppressWarnings("deprecation")
 public class GalleryArtSource extends MuzeiArtSource implements LifecycleOwner {
     private static final String TAG = "GalleryArtSource";
     private static final String SOURCE_NAME = "GalleryArtSource";
