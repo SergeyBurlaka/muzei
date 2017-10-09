@@ -49,6 +49,7 @@ import com.google.android.apps.muzei.room.SourceDao;
 import com.google.firebase.analytics.FirebaseAnalytics;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
@@ -100,6 +101,18 @@ public class LegacySourceManager implements LifecycleObserver, Observer<Provider
             database.sourceDao().deleteAll(existingSources.toArray(new ComponentName[0]));
             database.setTransactionSuccessful();
             database.endTransaction();
+            // Enable or disable the LegacyArtProvider based on whether there are any available sources
+            List<Source> sources = database.sourceDao().getSourcesBlocking();
+            ComponentName legacyComponentName = new ComponentName(mContext, LegacyArtProvider.class);
+            int currentState = pm.getComponentEnabledSetting(legacyComponentName);
+            int newState = sources.isEmpty()
+                    ? PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+                    : PackageManager.COMPONENT_ENABLED_STATE_ENABLED;
+            if (currentState != newState) {
+                pm.setComponentEnabledSetting(legacyComponentName,
+                        newState,
+                        PackageManager.DONT_KILL_APP);
+            }
         }
     }
 

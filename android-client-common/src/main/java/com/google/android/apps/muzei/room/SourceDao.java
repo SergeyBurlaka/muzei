@@ -40,6 +40,9 @@ public interface SourceDao {
     @Query("SELECT * FROM source")
     LiveData<List<Source>> getSources();
 
+    @Query("SELECT * FROM source")
+    List<Source> getSourcesBlocking();
+
     @TypeConverters(ComponentNameTypeConverter.class)
     @Query("SELECT componentName FROM source")
     List<ComponentName> getSourceComponentNamesBlocking();
