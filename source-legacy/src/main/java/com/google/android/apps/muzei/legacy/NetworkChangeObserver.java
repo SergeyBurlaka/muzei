@@ -16,16 +16,16 @@
 
 package com.google.android.apps.muzei.legacy;
 
-import android.arch.lifecycle.Lifecycle;
-import android.arch.lifecycle.LifecycleObserver;
+import android.arch.lifecycle.DefaultLifecycleObserver;
+import android.arch.lifecycle.LifecycleOwner;
 import android.arch.lifecycle.LiveData;
 import android.arch.lifecycle.Observer;
-import android.arch.lifecycle.OnLifecycleEvent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.ConnectivityManager;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
 import com.google.android.apps.muzei.room.MuzeiDatabase;
@@ -38,7 +38,7 @@ import static com.google.android.apps.muzei.api.internal.ProtocolConstants.ACTIO
 /**
  * LifecycleObserver responsible for monitoring network connectivity and retrying artwork as necessary
  */
-public class NetworkChangeObserver implements LifecycleObserver {
+public class NetworkChangeObserver implements DefaultLifecycleObserver {
     private final Context mContext;
     private BroadcastReceiver mNetworkChangeReceiver = new BroadcastReceiver() {
         @Override
@@ -74,14 +74,14 @@ public class NetworkChangeObserver implements LifecycleObserver {
         mContext = context;
     }
 
-    @OnLifecycleEvent(Lifecycle.Event.ON_START)
-    public void registerReceiver() {
+    @Override
+    public void onStart(@NonNull LifecycleOwner owner) {
         IntentFilter networkChangeFilter = new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION);
         mContext.registerReceiver(mNetworkChangeReceiver, networkChangeFilter);
     }
 
-    @OnLifecycleEvent(Lifecycle.Event.ON_STOP)
-    public void unregisterReceiver() {
+    @Override
+    public void onStop(@NonNull LifecycleOwner owner) {
         mContext.unregisterReceiver(mNetworkChangeReceiver);
     }
 }

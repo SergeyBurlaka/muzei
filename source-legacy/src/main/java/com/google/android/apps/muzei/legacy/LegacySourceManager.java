@@ -16,14 +16,13 @@
 
 package com.google.android.apps.muzei.legacy;
 
+import android.arch.lifecycle.DefaultLifecycleObserver;
 import android.arch.lifecycle.Lifecycle;
-import android.arch.lifecycle.LifecycleObserver;
 import android.arch.lifecycle.LifecycleOwner;
 import android.arch.lifecycle.LifecycleRegistry;
 import android.arch.lifecycle.LiveData;
 import android.arch.lifecycle.MediatorLiveData;
 import android.arch.lifecycle.Observer;
-import android.arch.lifecycle.OnLifecycleEvent;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -60,7 +59,7 @@ import static com.google.android.apps.muzei.api.internal.ProtocolConstants.EXTRA
 /**
  * Class responsible for managing interactions with sources such as subscribing, unsubscribing, and sending actions.
  */
-public class LegacySourceManager implements LifecycleObserver, Observer<Provider>, LifecycleOwner {
+public class LegacySourceManager implements DefaultLifecycleObserver, Observer<Provider>, LifecycleOwner {
     private static final String TAG = "SourceManager";
 
     private static final String USER_PROPERTY_SELECTED_SOURCE = "selected_source";
@@ -209,8 +208,8 @@ public class LegacySourceManager implements LifecycleObserver, Observer<Provider
         return mLifecycle;
     }
 
-    @OnLifecycleEvent(Lifecycle.Event.ON_CREATE)
-    public void onMuzeiEnabled() {
+    @Override
+    public void onCreate(@NonNull LifecycleOwner owner) {
         // When Muzei is enabled, we start listening for the current provider
         providerLiveData = MuzeiDatabase.getInstance(mContext).providerDao().getCurrentProvider();
         providerLiveData.observeForever(this);
@@ -315,8 +314,8 @@ public class LegacySourceManager implements LifecycleObserver, Observer<Provider
         }
     }
 
-    @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
-    public void onMuzeiDisabled() {
+    @Override
+    public void onDestroy(@NonNull LifecycleOwner owner) {
         mLifecycle.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY);
         providerLiveData.removeObserver(this);
         mContext.unregisterReceiver(mSourcePackageChangeReceiver);

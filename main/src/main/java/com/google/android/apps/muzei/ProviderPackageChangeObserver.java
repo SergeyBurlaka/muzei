@@ -16,17 +16,17 @@
 
 package com.google.android.apps.muzei;
 
-import android.arch.lifecycle.Lifecycle;
-import android.arch.lifecycle.LifecycleObserver;
+import android.arch.lifecycle.DefaultLifecycleObserver;
+import android.arch.lifecycle.LifecycleOwner;
 import android.arch.lifecycle.LiveData;
 import android.arch.lifecycle.Observer;
-import android.arch.lifecycle.OnLifecycleEvent;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.Log;
@@ -40,7 +40,7 @@ import com.google.android.apps.muzei.sync.ProviderManager;
  * LifecycleObserver used to watch for changes to installed packages on the device. This triggers
  * a cleanup of providers (in case one was uninstalled).
  */
-public class ProviderPackageChangeObserver implements LifecycleObserver {
+public class ProviderPackageChangeObserver implements DefaultLifecycleObserver {
     private static final String TAG = "ProviderPackageChange";
 
     private final Context mContext;
@@ -80,8 +80,8 @@ public class ProviderPackageChangeObserver implements LifecycleObserver {
         mContext = context;
     }
 
-    @OnLifecycleEvent(Lifecycle.Event.ON_CREATE)
-    public void registerPackageChangeReceiver() {
+    @Override
+    public void onCreate(@NonNull LifecycleOwner owner) {
         // Register for package change events
         IntentFilter packageChangeFilter = new IntentFilter();
         packageChangeFilter.addDataScheme("package");
@@ -91,8 +91,8 @@ public class ProviderPackageChangeObserver implements LifecycleObserver {
         mContext.registerReceiver(mProviderPackageChangeReceiver, packageChangeFilter);
     }
 
-    @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
-    public void unregisterPackageChangeReceiver() {
+    @Override
+    public void onDestroy(@NonNull LifecycleOwner owner) {
         mContext.unregisterReceiver(mProviderPackageChangeReceiver);
     }
 }
