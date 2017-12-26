@@ -407,7 +407,7 @@ public class LegacySourceManager implements DefaultLifecycleObserver, Observer<P
                     .putExtra(EXTRA_SUBSCRIBER_COMPONENT,
                             new ComponentName(mContext, SourceSubscriberService.class))
                     .putExtra(EXTRA_TOKEN, (String) null));
-        } catch (IllegalStateException e) {
+        } catch (IllegalStateException|SecurityException e) {
             Log.i(TAG, "Unsubscribing to " + source.componentName
                     + " failed.", e);
         }
