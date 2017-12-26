@@ -158,20 +158,16 @@ public class LegacySourceManager implements DefaultLifecycleObserver, Observer<P
         private Source currentSource = null;
 
         SubscriberLiveData() {
-            addSource(MuzeiDatabase.getInstance(mContext).sourceDao().getCurrentSource(),
-                    new Observer<Source>() {
-                        @Override
-                        public void onChanged(@Nullable final Source source) {
-                            if (currentSource != null) {
-                                unsubscribe(currentSource);
-                            }
-                            currentSource = source;
-                            if (source != null) {
-                                subscribe(source);
-                            }
-                            setValue(source);
-                        }
-                    });
+            addSource(MuzeiDatabase.getInstance(mContext).sourceDao().getCurrentSource(), source -> {
+                if (currentSource != null) {
+                    unsubscribe(currentSource);
+                }
+                currentSource = source;
+                if (source != null) {
+                    subscribe(source);
+                }
+                setValue(source);
+            });
         }
 
         @Override
@@ -192,12 +188,9 @@ public class LegacySourceManager implements DefaultLifecycleObserver, Observer<P
         mContext = context;
         mLifecycle = new LifecycleRegistry(this);
         mLifecycle.addObserver(new NetworkChangeObserver(mContext));
-        new SubscriberLiveData().observe(this, new Observer<Source>() {
-            @Override
-            public void onChanged(@Nullable final Source source) {
-                if (source != null) {
-                    sendSelectedSourceAnalytics(source.componentName);
-                }
+        new SubscriberLiveData().observe(this, source -> {
+            if (source != null) {
+                sendSelectedSourceAnalytics(source.componentName);
             }
         });
     }

@@ -32,27 +32,23 @@ public class LegacySetupActivity extends FragmentActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        MuzeiDatabase.getInstance(this).sourceDao().getCurrentSource().observe(this,
-                new Observer<Source>() {
-                    @Override
-                    public void onChanged(@Nullable final Source source) {
-                        if (source != null) {
-                            setResult(RESULT_OK);
-                            finish();
-                        } else {
-                            // Push the user to the LegacySettingsActivity to select a source
-                            Intent intent = new Intent(LegacySetupActivity.this,
-                                    LegacySettingsActivity.class);
-                            //noinspection deprecation
-                            if (getIntent().getBooleanExtra(
-                                    MuzeiArtSource.EXTRA_FROM_MUZEI_SETTINGS, false)) {
-                                //noinspection deprecation
-                                intent.putExtra(MuzeiArtSource.EXTRA_FROM_MUZEI_SETTINGS, true);
-                            }
-                            startActivityForResult(intent, REQUEST_CHOOSE_SOURCE);
-                        }
-                    }
-                });
+        MuzeiDatabase.getInstance(this).sourceDao().getCurrentSource().observe(this, source -> {
+            if (source != null) {
+                setResult(RESULT_OK);
+                finish();
+            } else {
+                // Push the user to the LegacySettingsActivity to select a source
+                Intent intent = new Intent(LegacySetupActivity.this,
+                        LegacySettingsActivity.class);
+                //noinspection deprecation
+                if (getIntent().getBooleanExtra(
+                        MuzeiArtSource.EXTRA_FROM_MUZEI_SETTINGS, false)) {
+                    //noinspection deprecation
+                    intent.putExtra(MuzeiArtSource.EXTRA_FROM_MUZEI_SETTINGS, true);
+                }
+                startActivityForResult(intent, REQUEST_CHOOSE_SOURCE);
+            }
+        });
     }
 
     @Override

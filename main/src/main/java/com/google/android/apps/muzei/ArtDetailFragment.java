@@ -111,16 +111,13 @@ public class ArtDetailFragment extends Fragment {
                 mAttributionView.setVisibility(View.GONE);
             }
 
-            currentArtwork.getCommands(getContext(), new Artwork.CommandsCallback() {
-                @Override
-                public void onCallback(@NonNull final List<UserCommand> commands) {
-                    int numSourceActions = Math.min(SOURCE_ACTION_IDS.length,
-                            commands.size());
-                    for (int i = 0; i < numSourceActions; i++) {
-                        UserCommand action = commands.get(i);
-                        mOverflowSourceActionMap.put(SOURCE_ACTION_IDS[i], action.getId());
-                        mOverflowMenu.getMenu().add(0, SOURCE_ACTION_IDS[i], 0, action.getTitle());
-                    }
+            currentArtwork.getCommands(getContext(), commands -> {
+                int numSourceActions = Math.min(SOURCE_ACTION_IDS.length,
+                        commands.size());
+                for (int i = 0; i < numSourceActions; i++) {
+                    UserCommand action = commands.get(i);
+                    mOverflowSourceActionMap.put(SOURCE_ACTION_IDS[i], action.getId());
+                    mOverflowMenu.getMenu().add(0, SOURCE_ACTION_IDS[i], 0, action.getTitle());
                 }
             });
 
@@ -187,37 +184,28 @@ public class ArtDetailFragment extends Fragment {
                 0xaa000000, 8, Gravity.BOTTOM));
 
         mMetadataView = view.findViewById(R.id.metadata);
-        mMetadataView.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if (mCurrentArtwork != null) {
-                    mCurrentArtwork.openArtworkInfo(getContext());
-                }
+        mMetadataView.setOnClickListener(view13 -> {
+            if (mCurrentArtwork != null) {
+                mCurrentArtwork.openArtworkInfo(getContext());
             }
         });
 
         final float metadataSlideDistance = TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_DIP, 8, getResources().getDisplayMetrics());
         mContainerView.setOnSystemUiVisibilityChangeListener(
-                new View.OnSystemUiVisibilityChangeListener() {
-                    @Override
-                    public void onSystemUiVisibilityChange(int vis) {
-                        final boolean visible = (vis & View.SYSTEM_UI_FLAG_LOW_PROFILE) == 0;
+                vis -> {
+                    final boolean visible = (vis & View.SYSTEM_UI_FLAG_LOW_PROFILE) == 0;
 
-                        mChromeContainerView.setVisibility(View.VISIBLE);
-                        mChromeContainerView.animate()
-                                .alpha(visible ? 1f : 0f)
-                                .translationY(visible ? 0 : metadataSlideDistance)
-                                .setDuration(200)
-                                .withEndAction(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        if (!visible) {
-                                            mChromeContainerView.setVisibility(View.GONE);
-                                        }
-                                    }
-                                });
-                    }
+                    mChromeContainerView.setVisibility(View.VISIBLE);
+                    mChromeContainerView.animate()
+                            .alpha(visible ? 1f : 0f)
+                            .translationY(visible ? 0 : metadataSlideDistance)
+                            .setDuration(200)
+                            .withEndAction(() -> {
+                                if (!visible) {
+                                    mChromeContainerView.setVisibility(View.GONE);
+                                }
+                            });
                 });
 
         mTitleView = view.findViewById(R.id.title);
@@ -227,59 +215,45 @@ public class ArtDetailFragment extends Fragment {
         final View overflowButton = view.findViewById(R.id.overflow_button);
         mOverflowMenu = new PopupMenu(getContext(), overflowButton);
         overflowButton.setOnTouchListener(mOverflowMenu.getDragToOpenListener());
-        overflowButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                mOverflowMenu.show();
-            }
-        });
-        mOverflowMenu.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
-            @Override
-            public boolean onMenuItemClick(MenuItem menuItem) {
-                Context context = getContext();
-                if (context == null) {
-                    return false;
-                }
-                int id = mOverflowSourceActionMap.get(menuItem.getItemId());
-                if (id > 0) {
-                    mCurrentArtwork.sendAction(getContext(), id);
-                    return true;
-                }
-
-                switch (menuItem.getItemId()) {
-                    case R.id.action_about:
-                        FirebaseAnalytics.getInstance(context).logEvent("about_open", null);
-                        startActivity(new Intent(context, AboutActivity.class));
-                        return true;
-                }
+        overflowButton.setOnClickListener(view12 -> mOverflowMenu.show());
+        mOverflowMenu.setOnMenuItemClickListener(menuItem -> {
+            Context context = getContext();
+            if (context == null) {
                 return false;
             }
+            int id = mOverflowSourceActionMap.get(menuItem.getItemId());
+            if (id > 0) {
+                mCurrentArtwork.sendAction(getContext(), id);
+                return true;
+            }
+
+            switch (menuItem.getItemId()) {
+                case R.id.action_about:
+                    FirebaseAnalytics.getInstance(context).logEvent("about_open", null);
+                    startActivity(new Intent(context, AboutActivity.class));
+                    return true;
+            }
+            return false;
         });
 
         mNextButton = view.findViewById(R.id.next_button);
-        mNextButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                ProviderManager.getInstance(getContext()).nextArtwork();
-                mNextFakeLoading = true;
-                showNextFakeLoading();
-            }
+        mNextButton.setOnClickListener(view1 -> {
+            ProviderManager.getInstance(getContext()).nextArtwork();
+            mNextFakeLoading = true;
+            showNextFakeLoading();
         });
         TooltipCompat.setTooltipText(mNextButton, mNextButton.getContentDescription());
 
         mPanScaleProxyView = view.findViewById(R.id.pan_scale_proxy);
         mPanScaleProxyView.setMaxZoom(5);
         mPanScaleProxyView.setOnViewportChangedListener(
-                new PanScaleProxyView.OnViewportChangedListener() {
-                    @Override
-                    public void onViewportChanged() {
-                        if (mGuardViewportChangeListener) {
-                            return;
-                        }
-
-                        ArtDetailViewport.getInstance().setViewport(
-                                mCurrentViewportId, mPanScaleProxyView.getCurrentViewport(), true);
+                () -> {
+                    if (mGuardViewportChangeListener) {
+                        return;
                     }
+
+                    ArtDetailViewport.getInstance().setViewport(
+                            mCurrentViewportId, mPanScaleProxyView.getCurrentViewport(), true);
                 });
         mPanScaleProxyView.setOnOtherGestureListener(
                 new PanScaleProxyView.OnOtherGestureListener() {
@@ -434,12 +408,9 @@ public class ArtDetailFragment extends Fragment {
         updateLoadingSpinnerVisibility();
     }
 
-    private Runnable mUnsetNextFakeLoadingRunnable = new Runnable() {
-        @Override
-        public void run() {
-            mNextFakeLoading = false;
-            updateLoadingSpinnerVisibility();
-        }
+    private Runnable mUnsetNextFakeLoadingRunnable = () -> {
+        mNextFakeLoading = false;
+        updateLoadingSpinnerVisibility();
     };
 
     private void updateLoadingSpinnerVisibility() {
@@ -454,12 +425,9 @@ public class ArtDetailFragment extends Fragment {
                 mLoadingContainerView.animate()
                         .alpha(0)
                         .setDuration(1000)
-                        .withEndAction(new Runnable() {
-                            @Override
-                            public void run() {
-                                mLoadingContainerView.setVisibility(View.GONE);
-                                mLoadingIndicatorView.stop();
-                            }
+                        .withEndAction(() -> {
+                            mLoadingContainerView.setVisibility(View.GONE);
+                            mLoadingIndicatorView.stop();
                         });
             }
         }

@@ -71,22 +71,18 @@ public class PhotoSetAsTargetActivity extends Activity {
                         new ComponentName(context, GalleryArtProvider.class).flattenToShortString());
                 bundle.putString(FirebaseAnalytics.Param.CONTENT_TYPE, "sources");
                 FirebaseAnalytics.getInstance(context).logEvent(FirebaseAnalytics.Event.SELECT_CONTENT, bundle);
-                ProviderManager.getInstance(context).selectProvider(new ComponentName(context, GalleryArtProvider.class),
-                        new ProviderManager.ProviderCallback() {
-                            @Override
-                            public void onProviderSelected() {
-                                // TODO Update to call through to GalleryArtProvider
-                                Uri uri = ChosenPhoto.getContentUri(id);
-                                startService(new Intent(context, GalleryArtSource.class)
-                                        .setAction(GalleryArtSource.ACTION_PUBLISH_NEXT_GALLERY_ITEM)
-                                        .putExtra(GalleryArtSource.EXTRA_FORCE_URI, uri));
+                ProviderManager.getInstance(context).selectProvider(new ComponentName(context, GalleryArtProvider.class), () -> {
+                    // TODO Update to call through to GalleryArtProvider
+                    Uri uri = ChosenPhoto.getContentUri(id);
+                    startService(new Intent(context, GalleryArtSource.class)
+                            .setAction(GalleryArtSource.ACTION_PUBLISH_NEXT_GALLERY_ITEM)
+                            .putExtra(GalleryArtSource.EXTRA_FORCE_URI, uri));
 
-                                startActivity(Intent.makeMainActivity(new ComponentName(
-                                        context, MuzeiActivity.class))
-                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-                                finish();
-                            }
-                        });
+                    startActivity(Intent.makeMainActivity(new ComponentName(
+                            context, MuzeiActivity.class))
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                    finish();
+                });
 
             }
         });

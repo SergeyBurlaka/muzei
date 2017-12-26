@@ -172,25 +172,17 @@ public class LegacySettingsActivity extends AppCompatActivity {
         FirebaseAnalytics.getInstance(this).logEvent(FirebaseAnalytics.Event.VIEW_ITEM_LIST, bundle);
 
         SourceDao sourceDao = MuzeiDatabase.getInstance(this).sourceDao();
-        sourceDao.getSources().observe(this,
-                new Observer<List<Source>>() {
-                    @Override
-                    public void onChanged(@Nullable final List<Source> sources) {
-                        updateSources(sources);
-                        updatePadding();
-                    }
-                });
+        sourceDao.getSources().observe(this, sources -> {
+            updateSources(sources);
+            updatePadding();
+        });
         mCurrentSourceLiveData = sourceDao.getCurrentSource();
-        mCurrentSourceLiveData.observe(this,
-                new Observer<Source>() {
-                    @Override
-                    public void onChanged(@Nullable final Source source) {
-                        if (source != null) {
-                            setResult(RESULT_OK);
-                        }
-                        updateSelectedItem(source, true);
-                    }
-                });
+        mCurrentSourceLiveData.observe(this, source -> {
+            if (source != null) {
+                setResult(RESULT_OK);
+            }
+            updateSelectedItem(source, true);
+        });
     }
 
     @Override
@@ -299,12 +291,9 @@ public class LegacySettingsActivity extends AppCompatActivity {
                 .setDuration(allowAnimate ? 300 : 0)
                 .setStartDelay((show && allowAnimate) ? 200 : 0)
                 .withLayer()
-                .withEndAction(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (!show) {
-                            settingsButton.setVisibility(View.INVISIBLE);
-                        }
+                .withEndAction(() -> {
+                    if (!show) {
+                        settingsButton.setVisibility(View.INVISIBLE);
                     }
                 });
     }
@@ -334,31 +323,28 @@ public class LegacySettingsActivity extends AppCompatActivity {
         }
 
         final String appPackage = getPackageName();
-        Collections.sort(mSourceViews, new Comparator<SourceView>() {
-            @Override
-            public int compare(SourceView sourceView1, SourceView sourceView2) {
-                Source s1 = sourceView1.source;
-                Source s2 = sourceView2.source;
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    boolean target1IsO = s1.targetSdkVersion >= Build.VERSION_CODES.O;
-                    boolean target2IsO = s2.targetSdkVersion >= Build.VERSION_CODES.O;
-                    if (target1IsO && !target2IsO) {
-                        return 1;
-                    } else if (!target1IsO && target2IsO) {
-                        return -1;
-                    }
+        Collections.sort(mSourceViews, (sourceView1, sourceView2) -> {
+            Source s1 = sourceView1.source;
+            Source s2 = sourceView2.source;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                boolean target1IsO = s1.targetSdkVersion >= Build.VERSION_CODES.O;
+                boolean target2IsO = s2.targetSdkVersion >= Build.VERSION_CODES.O;
+                if (target1IsO && !target2IsO) {
+                    return 1;
+                } else if (!target1IsO && target2IsO) {
+                    return -1;
                 }
-                String pn1 = s1.componentName.getPackageName();
-                String pn2 = s2.componentName.getPackageName();
-                if (!pn1.equals(pn2)) {
-                    if (appPackage.equals(pn1)) {
-                        return -1;
-                    } else if (appPackage.equals(pn2)) {
-                        return 1;
-                    }
-                }
-                return s1.label.compareTo(s2.label);
             }
+            String pn1 = s1.componentName.getPackageName();
+            String pn2 = s2.componentName.getPackageName();
+            if (!pn1.equals(pn2)) {
+                if (appPackage.equals(pn1)) {
+                    return -1;
+                } else if (appPackage.equals(pn2)) {
+                    return 1;
+                }
+            }
+            return s1.label.compareTo(s2.label);
         });
 
         redrawSources();
@@ -376,76 +362,60 @@ public class LegacySettingsActivity extends AppCompatActivity {
 
             sourceView.selectSourceButton = sourceView.rootView.findViewById(R.id.legacy_settings_source_image);
             final Source source = sourceView.source;
-            sourceView.selectSourceButton.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    if (source.componentName.equals(mSelectedSource)) {
-                        finish();
-                    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                            && source.targetSdkVersion >= Build.VERSION_CODES.O) {
-                        AlertDialog.Builder builder = new AlertDialog.Builder(LegacySettingsActivity.this)
-                                .setTitle(R.string.legacy_settings_source_target_too_high_title)
-                                .setMessage(R.string.legacy_settings_source_target_too_high_message)
-                                .setNegativeButton(R.string.legacy_settings_source_target_too_high_learn_more,
-                                        new DialogInterface.OnClickListener() {
-                                            @Override
-                                            public void onClick(DialogInterface dialog, int which) {
-                                                startActivity(new Intent(Intent.ACTION_VIEW,
-                                                        Uri.parse("https://medium.com/@ianhlake/the-muzei-plugin-api-and-androids-evolution-9b9979265cfb")));
-                                            }
-                                        })
-                                .setPositiveButton(R.string.legacy_settings_source_target_too_high_dismiss, null);
-                        final Intent sendFeedbackIntent = new Intent(Intent.ACTION_VIEW,
-                                Uri.parse("https://play.google.com/store/apps/details?id="
-                                        + source.componentName.getPackageName()));
-                        if (sendFeedbackIntent.resolveActivity(getPackageManager()) != null) {
-                            builder.setNeutralButton(
-                                    getString(R.string.legacy_settings_source_target_too_high_send_feedback, source.label),
-                                    new DialogInterface.OnClickListener() {
-                                        @Override
-                                        public void onClick(DialogInterface dialog, int which) {
-                                            startActivity(sendFeedbackIntent);
-                                        }
-                                    });
-                        }
-                        builder.show();
-                    } else if (source.setupActivity != null) {
-                        Bundle bundle = new Bundle();
-                        bundle.putString(FirebaseAnalytics.Param.ITEM_ID, source.componentName.flattenToShortString());
-                        bundle.putString(FirebaseAnalytics.Param.ITEM_NAME, source.label);
-                        bundle.putString(FirebaseAnalytics.Param.ITEM_CATEGORY, "sources");
-                        FirebaseAnalytics.getInstance(LegacySettingsActivity.this)
-                                .logEvent(FirebaseAnalytics.Event.VIEW_ITEM, bundle);
-                        mCurrentInitialSetupSource = source.componentName;
-                        launchSourceSetup(source);
-                    } else {
-                        Bundle bundle = new Bundle();
-                        bundle.putString(FirebaseAnalytics.Param.ITEM_ID, source.componentName.flattenToShortString());
-                        bundle.putString(FirebaseAnalytics.Param.CONTENT_TYPE, "sources");
-                        FirebaseAnalytics.getInstance(LegacySettingsActivity.this)
-                                .logEvent(FirebaseAnalytics.Event.SELECT_CONTENT, bundle);
-                        LegacySourceManager.selectSource(LegacySettingsActivity.this, source.componentName);
+            sourceView.selectSourceButton.setOnClickListener(view -> {
+                if (source.componentName.equals(mSelectedSource)) {
+                    finish();
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                        && source.targetSdkVersion >= Build.VERSION_CODES.O) {
+                    AlertDialog.Builder builder = new AlertDialog.Builder(LegacySettingsActivity.this)
+                            .setTitle(R.string.legacy_settings_source_target_too_high_title)
+                            .setMessage(R.string.legacy_settings_source_target_too_high_message)
+                            .setNegativeButton(R.string.legacy_settings_source_target_too_high_learn_more,
+                                    (dialog, which) -> startActivity(new Intent(Intent.ACTION_VIEW,
+                                            Uri.parse("https://medium.com/@ianhlake/the-muzei-plugin-api-and-androids-evolution-9b9979265cfb"))))
+                            .setPositiveButton(R.string.legacy_settings_source_target_too_high_dismiss, null);
+                    final Intent sendFeedbackIntent = new Intent(Intent.ACTION_VIEW,
+                            Uri.parse("https://play.google.com/store/apps/details?id="
+                                    + source.componentName.getPackageName()));
+                    if (sendFeedbackIntent.resolveActivity(getPackageManager()) != null) {
+                        builder.setNeutralButton(
+                                getString(R.string.legacy_settings_source_target_too_high_send_feedback, source.label),
+                                (dialog, which) -> startActivity(sendFeedbackIntent));
                     }
+                    builder.show();
+                } else if (source.setupActivity != null) {
+                    Bundle bundle = new Bundle();
+                    bundle.putString(FirebaseAnalytics.Param.ITEM_ID, source.componentName.flattenToShortString());
+                    bundle.putString(FirebaseAnalytics.Param.ITEM_NAME, source.label);
+                    bundle.putString(FirebaseAnalytics.Param.ITEM_CATEGORY, "sources");
+                    FirebaseAnalytics.getInstance(LegacySettingsActivity.this)
+                            .logEvent(FirebaseAnalytics.Event.VIEW_ITEM, bundle);
+                    mCurrentInitialSetupSource = source.componentName;
+                    launchSourceSetup(source);
+                } else {
+                    Bundle bundle = new Bundle();
+                    bundle.putString(FirebaseAnalytics.Param.ITEM_ID, source.componentName.flattenToShortString());
+                    bundle.putString(FirebaseAnalytics.Param.CONTENT_TYPE, "sources");
+                    FirebaseAnalytics.getInstance(LegacySettingsActivity.this)
+                            .logEvent(FirebaseAnalytics.Event.SELECT_CONTENT, bundle);
+                    LegacySourceManager.selectSource(LegacySettingsActivity.this, source.componentName);
                 }
             });
 
-            sourceView.selectSourceButton.setOnLongClickListener(new View.OnLongClickListener() {
-                @Override
-                public boolean onLongClick(View v) {
-                    final String pkg = source.componentName.getPackageName();
-                    if (TextUtils.equals(pkg, getPackageName())) {
-                        // Don't open Muzei's app info
-                        return false;
-                    }
-                    // Otherwise open third party extensions
-                    try {
-                        startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                                Uri.fromParts("package", pkg, null)));
-                    } catch (final ActivityNotFoundException e) {
-                        return false;
-                    }
-                    return true;
+            sourceView.selectSourceButton.setOnLongClickListener(v -> {
+                final String pkg = source.componentName.getPackageName();
+                if (TextUtils.equals(pkg, getPackageName())) {
+                    // Don't open Muzei's app info
+                    return false;
                 }
+                // Otherwise open third party extensions
+                try {
+                    startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            Uri.fromParts("package", pkg, null)));
+                } catch (final ActivityNotFoundException e) {
+                    return false;
+                }
+                return true;
             });
 
             float alpha = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
@@ -464,12 +434,7 @@ public class LegacySettingsActivity extends AppCompatActivity {
             updateSourceStatusUi(sourceView);
 
             sourceView.settingsButton = sourceView.rootView.findViewById(R.id.legacy_settings_source_settings);
-            sourceView.settingsButton.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    launchSourceSettings(source);
-                }
-            });
+            sourceView.settingsButton.setOnClickListener(view -> launchSourceSettings(source));
 
             animateSettingsButton(sourceView.settingsButton, false, false);
 

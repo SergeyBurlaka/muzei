@@ -121,16 +121,13 @@ public class NewWallpaperNotificationReceiver extends BroadcastReceiver {
             public void onChanged(@Nullable final Artwork artwork) {
                 artworkLiveData.removeObserver(this);
                 if (artwork != null) {
-                    artwork.getCommands(context, new Artwork.CommandsCallback() {
-                        @Override
-                        public void onCallback(@NonNull final List<UserCommand> commands) {
-                            for (UserCommand action : commands) {
-                                if (TextUtils.equals(selectedCommand, action.getTitle())) {
-                                    artwork.sendAction(context, action.getId());
-                                    break;
-                                }
-                                pendingResult.finish();
+                    artwork.getCommands(context, commands -> {
+                        for (UserCommand action : commands) {
+                            if (TextUtils.equals(selectedCommand, action.getTitle())) {
+                                artwork.sendAction(context, action.getId());
+                                break;
                             }
+                            pendingResult.finish();
                         }
                     });
                 }
