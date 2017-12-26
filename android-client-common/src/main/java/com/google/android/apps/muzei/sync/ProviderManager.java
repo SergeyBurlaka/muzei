@@ -109,6 +109,7 @@ public class ProviderManager extends MutableLiveData<Provider>
                 });
     }
 
+    @NonNull
     @Override
     public Lifecycle getLifecycle() {
         return mLifecycle;
