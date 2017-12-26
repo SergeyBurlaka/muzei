@@ -33,7 +33,6 @@ import android.util.SparseIntArray;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.LayoutInflater;
-import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.PopupMenu;
@@ -61,8 +60,6 @@ import net.nurik.roman.muzei.R;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
-
-import java.util.List;
 
 public class ArtDetailFragment extends Fragment {
     private int mCurrentViewportId = 0;

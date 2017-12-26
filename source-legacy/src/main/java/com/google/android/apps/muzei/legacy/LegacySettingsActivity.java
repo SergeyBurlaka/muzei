@@ -18,10 +18,8 @@ package com.google.android.apps.muzei.legacy;
 
 import android.animation.ObjectAnimator;
 import android.arch.lifecycle.LiveData;
-import android.arch.lifecycle.Observer;
 import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
@@ -39,7 +37,6 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.provider.Settings;
-import android.support.annotation.Nullable;
 import android.support.v4.content.res.ResourcesCompat;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
@@ -60,7 +57,6 @@ import com.google.firebase.analytics.FirebaseAnalytics;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 
 /**

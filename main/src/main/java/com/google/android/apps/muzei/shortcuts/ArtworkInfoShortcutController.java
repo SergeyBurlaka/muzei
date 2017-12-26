@@ -18,7 +18,6 @@ package com.google.android.apps.muzei.shortcuts;
 
 import android.arch.lifecycle.DefaultLifecycleObserver;
 import android.arch.lifecycle.LifecycleOwner;
-import android.arch.lifecycle.Observer;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ShortcutInfo;

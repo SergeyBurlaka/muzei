@@ -16,15 +16,12 @@
 
 package com.google.android.apps.muzei.legacy;
 
-import android.arch.lifecycle.Observer;
 import android.content.Intent;
 import android.os.Bundle;
-import android.support.annotation.Nullable;
 import android.support.v4.app.FragmentActivity;
 
 import com.google.android.apps.muzei.api.MuzeiArtSource;
 import com.google.android.apps.muzei.room.MuzeiDatabase;
-import com.google.android.apps.muzei.room.Source;
 
 public class LegacySetupActivity extends FragmentActivity {
     private static final int REQUEST_CHOOSE_SOURCE = 1;

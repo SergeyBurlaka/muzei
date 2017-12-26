@@ -20,12 +20,10 @@ import android.animation.ObjectAnimator;
 import android.app.Activity;
 import android.app.Notification;
 import android.arch.lifecycle.LiveData;
-import android.arch.lifecycle.Observer;
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
@@ -76,7 +74,6 @@ import net.nurik.roman.muzei.R;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 
 /**
