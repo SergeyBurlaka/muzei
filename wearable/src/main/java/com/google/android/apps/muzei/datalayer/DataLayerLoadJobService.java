@@ -28,14 +28,14 @@ import com.google.android.apps.muzei.api.provider.Artwork;
 import com.google.android.apps.muzei.api.provider.ProviderContract;
 import com.google.android.apps.muzei.complications.ArtworkComplicationProviderService;
 import com.google.android.apps.muzei.wearable.ArtworkTransfer;
-import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.wearable.DataApi;
+import com.google.android.gms.tasks.Tasks;
+import com.google.android.gms.wearable.DataClient;
+import com.google.android.gms.wearable.DataItem;
 import com.google.android.gms.wearable.DataMap;
 import com.google.android.gms.wearable.DataMapItem;
 import com.google.android.gms.wearable.Wearable;
 
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Load artwork from the Wear Data Layer, writing it into {@link DataLayerArtProvider}.
@@ -52,28 +52,18 @@ public class DataLayerLoadJobService extends SimpleJobService {
     public int onRunJob(final JobParameters job) {
         boolean showActivateNotification = job.getExtras() != null &&
                 job.getExtras().getBoolean(SHOW_ACTIVATE_NOTIFICATION_EXTRA, false);
-        GoogleApiClient googleApiClient = new GoogleApiClient.Builder(this)
-                .addApi(Wearable.API)
-                .build();
-        ConnectionResult connectionResult =
-                googleApiClient.blockingConnect(30, TimeUnit.SECONDS);
-        if (!connectionResult.isSuccess()) {
-            Log.e(TAG, "Failed to connect to GoogleApiClient: " + connectionResult.getErrorCode());
-            return RESULT_FAIL_RETRY;
-        }
+        DataClient dataClient = Wearable.getDataClient(this);
         try {
-            DataApi.DataItemResult dataItemResult = Wearable.DataApi.getDataItem(googleApiClient,
-                    Uri.parse("wear://*/artwork")).await();
-            if (!dataItemResult.getStatus().isSuccess()) {
-                Log.i(TAG, "Error getting artwork DataItem: " +
-                        dataItemResult.getStatus().getStatusCode() + ": " +
-                        dataItemResult.getStatus().getStatusMessage());
+            DataItem dataItemResult = Tasks.await(dataClient.getDataItem(
+                    Uri.parse("wear://*/artwork")));
+            if (!dataItemResult.isDataValid()) {
+                Log.i(TAG, "Error getting artwork DataItem");
                 if (showActivateNotification) {
                     ActivateMuzeiIntentService.maybeShowActivateMuzeiNotification(this);
                 }
                 return RESULT_FAIL_NORETRY;
             }
-            DataMapItem dataMapItem = DataMapItem.fromDataItem(dataItemResult.getDataItem());
+            DataMapItem dataMapItem = DataMapItem.fromDataItem(dataItemResult);
             DataMap artworkDataMap = dataMapItem.getDataMap().getDataMap("artwork");
             if (artworkDataMap == null) {
                 Log.w(TAG, "No artwork in datamap.");
@@ -87,8 +77,10 @@ public class DataLayerLoadJobService extends SimpleJobService {
             enableComponents(FullScreenActivity.class, ArtworkComplicationProviderService.class);
             ActivateMuzeiIntentService.clearNotifications(this);
             return RESULT_SUCCESS;
-        } finally {
-            googleApiClient.disconnect();
+        } catch (ExecutionException |InterruptedException e) {
+            Log.w(TAG, "Error getting artwork DataItem", e);
+            return RESULT_FAIL_NORETRY;
+
         }
     }
 
