@@ -20,6 +20,10 @@ import android.arch.lifecycle.LiveData;
 import android.arch.persistence.room.Dao;
 import android.arch.persistence.room.Insert;
 import android.arch.persistence.room.Query;
+import android.arch.persistence.room.TypeConverters;
+import android.content.ComponentName;
+
+import com.google.android.apps.muzei.room.converter.ComponentNameTypeConverter;
 
 /**
  * Dao for Artwork
@@ -34,6 +38,10 @@ public interface ArtworkDao {
 
     @Query("SELECT * FROM artwork ORDER BY _id DESC")
     Artwork getCurrentArtworkBlocking();
+
+    @TypeConverters({ComponentNameTypeConverter.class})
+    @Query("SELECT * FROM artwork WHERE sourceComponentName=:provider")
+    LiveData<Artwork> getCurrentArtworkForProvider(ComponentName provider);
 
     @Query("SELECT * FROM artwork WHERE _id=:id")
     Artwork getArtworkById(long id);

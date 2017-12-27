@@ -33,11 +33,6 @@
     <string name="action_activate">Activate</string>
     <string name="action_settings">Customize</string>
     <string name="action_source_settings">Customize source</string>
-    <string name="action_source_target_too_high_title">This source is disabled</string>
-    <string name="action_source_target_too_high_message">Muzei\'s API is not yet compatible with apps such as this one that target Android 8.0 (API 26).</string>
-    <string name="action_source_target_too_high_send_feedback">Send %s feedback</string>
-    <string name="action_source_target_too_high_learn_more">Learn more</string>
-    <string name="action_source_target_too_high_dismiss">Got it</string>
 
     <string name="contentdesc_overflow">More options</string>
     <string name="error_wallpaper_chooser">Couldn\'t launch wallpaper chooser. You can still activate Muzei by choosing \'Live Wallpapers\' in your home screen wallpaper picker.</string>

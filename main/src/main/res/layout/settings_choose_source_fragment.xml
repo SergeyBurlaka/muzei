@@ -16,33 +16,20 @@
 
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fitsSystemWindows="true">
 
-    <com.google.android.apps.muzei.util.ObservableHorizontalScrollView
-        android:id="@+id/source_scroller"
+    <android.support.v7.widget.RecyclerView
+        android:id="@+id/source_list"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:saveEnabled="false"
-        android:overScrollMode="never"
-        android:scrollbars="none">
-
-        <LinearLayout
-            android:id="@+id/source_container"
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:orientation="horizontal" />
-
-    </com.google.android.apps.muzei.util.ObservableHorizontalScrollView>
-
-    <com.google.android.apps.muzei.util.Scrollbar
-        android:id="@+id/source_scrollbar"
-        android:layout_width="200dp"
-        android:layout_height="3dp"
-        app:backgroundColor="#3fff"
-        app:indicatorColor="#fff"
-        android:layout_gravity="center_horizontal|bottom"
-        android:layout_marginBottom="16dp" />
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        app:layoutManager="GridLayoutManager"
+        android:layout_gravity="center_vertical"
+        tools:listitem="@layout/settings_choose_source_item"
+        android:padding="16dp"
+        android:clipToPadding="false"/>
 
 </FrameLayout>

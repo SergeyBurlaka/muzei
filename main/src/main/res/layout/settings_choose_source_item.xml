@@ -14,55 +14,71 @@
   limitations under the License.
   -->
 
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical"
+<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="@dimen/settings_choose_source_item_width"
-    android:layout_height="match_parent"
-    android:gravity="center_horizontal">
+    android:layout_height="@dimen/settings_choose_source_item_width">
 
-    <FrameLayout
+    <ImageView
         android:id="@+id/source_image"
-        android:clickable="true"
-        android:focusable="true"
-        android:foreground="@drawable/settings_source_item_image_overlay"
-        android:layout_width="@dimen/settings_choose_source_item_image_size"
-        android:layout_height="@dimen/settings_choose_source_item_image_size"
-        android:layout_marginBottom="16dp" />
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:src="#3000"
+        app:layout_constraintBottom_toTopOf="@+id/footer"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
-    <TextView android:id="@+id/source_title"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:paddingStart="8dp"
-        android:paddingEnd="8dp"
-        android:layout_marginBottom="8dp"
-        android:fontFamily="sans-serif-condensed"
-        android:textSize="@dimen/settings_text_size_large"
-        android:lineSpacingMultiplier="0.8"
-        android:textStyle="bold"
-        android:textAllCaps="true"
-        android:gravity="center_horizontal"
-        android:maxLines="3" />
+    <View
+        android:id="@+id/footer"
+        android:layout_width="0dp"
+        android:layout_height="68dp"
+        android:background="#7000"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/source_image" />
 
-    <TextView android:id="@+id/source_status"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:paddingStart="8dp"
-        android:paddingEnd="8dp"
-        android:textSize="@dimen/settings_text_size_normal"
-        android:lineSpacingMultiplier="1.1"
-        android:textStyle="italic"
-        android:gravity="center_horizontal"
-        android:textColor="#fff"
-        android:maxLines="4" />
-
-    <ImageButton android:id="@+id/source_settings_button"
+    <ImageButton
+        android:id="@+id/source_settings_button"
+        android:layout_width="48dp"
+        android:layout_height="0dp"
         android:background="?selectableItemBackgroundBorderless"
-        android:src="@drawable/ic_source_settings"
-        android:scaleType="center"
-        android:layout_width="56dp"
-        android:layout_height="56dp"
-        android:layout_marginTop="16dp"
         android:contentDescription="@string/action_source_settings"
-        android:visibility="invisible" />
+        android:scaleType="center"
+        android:src="@drawable/ic_source_settings"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="@+id/footer"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/source_title"
+        app:layout_constraintTop_toTopOf="@+id/footer" />
 
-</LinearLayout>
+    <TextView
+        android:id="@+id/source_title"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="16dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="16dp"
+        android:lines="1"
+        android:textSize="@dimen/settings_text_size_large"
+        app:layout_constraintEnd_toStartOf="@id/source_settings_button"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/footer"
+        app:layout_goneMarginEnd="16dp" />
+
+    <TextView
+        android:id="@+id/source_description"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="16dp"
+        android:layout_marginStart="16dp"
+        android:lines="1"
+        android:textSize="@dimen/settings_text_size_normal"
+        app:layout_constraintEnd_toStartOf="@id/source_settings_button"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/source_title"
+        app:layout_goneMarginEnd="16dp" />
+
+</android.support.constraint.ConstraintLayout>

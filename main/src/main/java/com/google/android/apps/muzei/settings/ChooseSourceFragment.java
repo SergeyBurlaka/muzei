@@ -16,10 +16,10 @@
 
 package com.google.android.apps.muzei.settings;
 
-import android.animation.ObjectAnimator;
 import android.app.Activity;
 import android.app.Notification;
 import android.arch.lifecycle.LiveData;
+import android.arch.lifecycle.Observer;
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -28,26 +28,15 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
-import android.content.res.Resources;
-import android.graphics.Bitmap;
-import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.Paint;
-import android.graphics.PorterDuff;
-import android.graphics.PorterDuffXfermode;
-import android.graphics.RectF;
-import android.graphics.drawable.BitmapDrawable;
-import android.graphics.drawable.Drawable;
+import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
 import android.provider.Settings;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
-import android.support.v4.content.res.ResourcesCompat;
-import android.support.v7.app.AlertDialog;
+import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.TooltipCompat;
 import android.text.TextUtils;
 import android.util.Log;
@@ -57,18 +46,22 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.ViewTreeObserver;
+import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.github.florent37.picassopalette.PicassoPalette;
 import com.google.android.apps.muzei.api.provider.MuzeiArtProvider;
+import com.google.android.apps.muzei.legacy.LegacyArtProvider;
 import com.google.android.apps.muzei.notifications.NotificationSettingsDialogFragment;
+import com.google.android.apps.muzei.room.Artwork;
 import com.google.android.apps.muzei.room.MuzeiDatabase;
 import com.google.android.apps.muzei.room.Provider;
+import com.google.android.apps.muzei.single.SingleArtProvider;
 import com.google.android.apps.muzei.sync.ProviderManager;
-import com.google.android.apps.muzei.util.ObservableHorizontalScrollView;
-import com.google.android.apps.muzei.util.Scrollbar;
 import com.google.firebase.analytics.FirebaseAnalytics;
+import com.squareup.picasso.Picasso;
 
 import net.nurik.roman.muzei.R;
 
@@ -84,34 +77,12 @@ public class ChooseSourceFragment extends Fragment {
 
     private static final String PLAY_STORE_PACKAGE_NAME = "com.android.vending";
 
-    private static final int SCROLLBAR_HIDE_DELAY_MILLIS = 1000;
-
-    private static final float ALPHA_DISABLED = 0.2f;
-    private static final float ALPHA_UNSELECTED = 0.4f;
-
     private static final int REQUEST_EXTENSION_SETUP = 1;
 
     private ComponentName mSelectedProvider;
-    private LiveData<Provider> mCurrentProviderLiveData;
-    private List<Source> mSources = new ArrayList<>();
+    private List<ProviderItem> mProviders = new ArrayList<>();
 
-    private Handler mHandler = new Handler();
-
-    private ViewGroup mSourceContainerView;
-    private ObservableHorizontalScrollView mSourceScrollerView;
-    private Scrollbar mScrollbar;
-    private ObjectAnimator mCurrentScroller;
-
-    private int mAnimationDuration;
-    private int mItemWidth;
-    private int mItemImageSize;
-    private int mItemEstimatedHeight;
-
-    private RectF mTempRectF = new RectF();
-    private Paint mImageFillPaint = new Paint();
-    private Paint mAlphaPaint = new Paint();
-    private Drawable mSelectedSourceImage;
-    private int mSelectedSourceIndex;
+    private ChooseSourceAdapter mAdapter;
 
     private ComponentName mCurrentInitialSetupSource;
 
@@ -122,15 +93,6 @@ public class ChooseSourceFragment extends Fragment {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setHasOptionsMenu(true);
-        mAnimationDuration = getResources().getInteger(android.R.integer.config_shortAnimTime);
-        mItemWidth = getResources().getDimensionPixelSize(
-                R.dimen.settings_choose_source_item_width);
-        mItemEstimatedHeight = getResources().getDimensionPixelSize(
-                R.dimen.settings_choose_source_item_estimated_height);
-        mItemImageSize = getResources().getDimensionPixelSize(
-                R.dimen.settings_choose_source_item_image_size);
-
-        prepareGenerateSourceImages();
     }
 
     @Override
@@ -141,9 +103,8 @@ public class ChooseSourceFragment extends Fragment {
         bundle.putString(FirebaseAnalytics.Param.ITEM_CATEGORY, "sources");
         FirebaseAnalytics.getInstance(context).logEvent(FirebaseAnalytics.Event.VIEW_ITEM_LIST, bundle);
 
-        mCurrentProviderLiveData = MuzeiDatabase.getInstance(context).providerDao().getCurrentProvider();
-        mCurrentProviderLiveData.observe(this, provider ->
-                updateSelectedItem(provider, true));
+        MuzeiDatabase.getInstance(context).providerDao().getCurrentProvider()
+                .observe(this, this::updateSelectedItem);
 
         Intent intent = ((Activity) context).getIntent();
         if (intent != null && intent.getCategories() != null &&
@@ -205,80 +166,18 @@ public class ChooseSourceFragment extends Fragment {
         // Ensure we have the latest insets
         view.requestFitSystemWindows();
 
-        mScrollbar = view.findViewById(R.id.source_scrollbar);
-        mSourceScrollerView = view.findViewById(R.id.source_scroller);
-        mSourceScrollerView.setCallbacks(new ObservableHorizontalScrollView.Callbacks() {
-            @Override
-            public void onScrollChanged(int scrollX) {
-                showScrollbar();
-            }
-
-            @Override
-            public void onDownMotionEvent() {
-                if (mCurrentScroller != null) {
-                    mCurrentScroller.cancel();
-                    mCurrentScroller = null;
-                }
-            }
-        });
-        mSourceContainerView = view.findViewById(R.id.source_container);
-
-        redrawSources();
-
-        view.setVisibility(View.INVISIBLE);
-        view.getViewTreeObserver().addOnGlobalLayoutListener(
-                new ViewTreeObserver.OnGlobalLayoutListener() {
-                    int mPass = 0;
-
-                    @Override
-                    public void onGlobalLayout() {
-                        if (mPass == 0) {
-                            // First pass
-                            updatePadding();
-                            ++mPass;
-                        } else if (mPass == 1 & mSelectedSourceIndex >= 0) {
-                            // Second pass
-                            mSourceScrollerView.setScrollX(mItemWidth * mSelectedSourceIndex);
-                            showScrollbar();
-                            view.setVisibility(View.VISIBLE);
-                            ++mPass;
-                        } else {
-                            // Last pass, remove the listener
-                            view.getViewTreeObserver().removeOnGlobalLayoutListener(this);
-                        }
-                    }
-                });
+        RecyclerView recyclerView = view.findViewById(R.id.source_list);
+        mAdapter = new ChooseSourceAdapter();
+        recyclerView.setAdapter(mAdapter);
 
         view.setAlpha(0);
         view.animate().alpha(1f).setDuration(500);
-    }
-
-    private void updatePadding() {
-        int rootViewWidth = getView() != null ? getView().getWidth() : 0;
-        if (rootViewWidth == 0) {
-            return;
-        }
-        int topPadding = Math.max(0, (getView().getHeight() - mItemEstimatedHeight) / 2);
-        int numItems = mSources.size();
-        int sidePadding;
-        int minSidePadding = getResources().getDimensionPixelSize(
-                R.dimen.settings_choose_source_min_side_padding);
-        if (minSidePadding * 2 + mItemWidth * numItems < rootViewWidth) {
-            // Don't allow scrolling since all items can be visible. Center the entire
-            // list by using just the right amount of padding to center it.
-            sidePadding = (rootViewWidth - mItemWidth * numItems) / 2 - 1;
-        } else {
-            // Allow scrolling
-            sidePadding = Math.max(0, (rootViewWidth - mItemWidth) / 2);
-        }
-        mSourceContainerView.setPadding(sidePadding, topPadding, sidePadding, 0);
     }
 
     private BroadcastReceiver mPackagesChangedReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             updateSources();
-            updatePadding();
         }
     };
 
@@ -302,182 +201,79 @@ public class ChooseSourceFragment extends Fragment {
         getContext().unregisterReceiver(mPackagesChangedReceiver);
     }
 
-    private void updateSelectedItem(Provider selectedProvider, boolean allowAnimate) {
+    private void updateSelectedItem(Provider selectedProvider) {
         ComponentName previousSelectedProvider = mSelectedProvider;
         if (selectedProvider != null) {
             mSelectedProvider = selectedProvider.componentName;
         }
         if (previousSelectedProvider != null && previousSelectedProvider.equals(mSelectedProvider)) {
-            // Only update status
-            for (final Source source : mSources) {
-                if (!source.componentName.equals(mSelectedProvider) || source.rootView == null) {
-                    continue;
-                }
-                updateSourceStatusUi(source);
-            }
             return;
         }
 
         // This is a newly selected source.
-        boolean selected;
-        int index = -1;
-        for (final Source source : mSources) {
-            ++index;
-            if (source.componentName.equals(previousSelectedProvider)) {
-                selected = false;
-            } else if (source.componentName.equals(mSelectedProvider)) {
-                mSelectedSourceIndex = index;
-                selected = true;
+        for (final ProviderItem provider : mProviders) {
+            if (provider.componentName.equals(previousSelectedProvider)) {
+                provider.selected = false;
+            } else if (provider.componentName.equals(mSelectedProvider)) {
+                provider.selected = true;
             } else {
                 continue;
             }
-
-            if (source.rootView == null) {
-                continue;
-            }
-
-            View sourceImageButton = source.rootView.findViewById(R.id.source_image);
-            Drawable drawable = selected ? mSelectedSourceImage : source.icon;
-            drawable.setColorFilter(source.color, PorterDuff.Mode.SRC_ATOP);
-            sourceImageButton.setBackground(drawable);
-
-            float alpha = selected ? 1f : Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                    && source.targetSdkVersion >= Build.VERSION_CODES.O ? ALPHA_DISABLED : ALPHA_UNSELECTED;
-            source.rootView.animate()
-                    .alpha(alpha)
-                    .setDuration(mAnimationDuration);
-
-            if (selected) {
-                updateSourceStatusUi(source);
-            }
-
-            animateSettingsButton(source.settingsButton,
-                    selected && source.settingsActivity != null, allowAnimate);
+            mAdapter.notifyDataSetChanged();
         }
-
-        if (mSelectedSourceIndex >= 0 && allowAnimate) {
-            if (mCurrentScroller != null) {
-                mCurrentScroller.cancel();
-            }
-
-            // For some reason smoothScrollTo isn't very smooth..
-            mCurrentScroller = ObjectAnimator.ofInt(mSourceScrollerView, "scrollX",
-                    mItemWidth * mSelectedSourceIndex);
-            mCurrentScroller.setDuration(mAnimationDuration);
-            mCurrentScroller.start();
-        }
-    }
-
-    private void animateSettingsButton(final View settingsButton, final boolean show,
-                                       boolean allowAnimate) {
-        if ((show && settingsButton.getVisibility() == View.VISIBLE) ||
-                (!show && settingsButton.getVisibility() == View.INVISIBLE)) {
-            return;
-        }
-        settingsButton.setVisibility(View.VISIBLE);
-        settingsButton.animate()
-                .translationY(show ? 0 : (-getResources().getDimensionPixelSize(
-                        R.dimen.settings_choose_source_settings_button_animate_distance)))
-                .alpha(show ? 1f : 0f)
-                .rotation(show ? 0 : -90)
-                .setDuration(allowAnimate ? 300 : 0)
-                .setStartDelay((show && allowAnimate) ? 200 : 0)
-                .withLayer()
-                .withEndAction(() -> {
-                    if (!show) {
-                        settingsButton.setVisibility(View.INVISIBLE);
-                    }
-                });
-    }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        // remove all scheduled runnables
-        mHandler.removeCallbacksAndMessages(null);
     }
 
     public void updateSources() {
         mSelectedProvider = null;
         Intent queryIntent = new Intent(MuzeiArtProvider.ACTION_MUZEI_ART_PROVIDER);
         PackageManager pm = getContext().getPackageManager();
-        mSources.clear();
+        mProviders.clear();
         List<ResolveInfo> resolveInfos = pm.queryIntentContentProviders(queryIntent,
                 PackageManager.GET_META_DATA);
 
         for (ResolveInfo ri : resolveInfos) {
-            Source source = new Source();
-            source.label = ri.loadLabel(pm).toString();
-            source.icon = new BitmapDrawable(getResources(), generateSourceImage(ri.loadIcon(pm)));
-            source.targetSdkVersion = ri.providerInfo.applicationInfo.targetSdkVersion;
-            source.componentName = new ComponentName(ri.providerInfo.packageName,
+            ProviderItem provider = new ProviderItem();
+            provider.title = ri.loadLabel(pm).toString();
+            provider.componentName = new ComponentName(ri.providerInfo.packageName,
                     ri.providerInfo.name);
-            if (ri.providerInfo.descriptionRes != 0) {
-                try {
-                    Context packageContext = getContext().createPackageContext(
-                            source.componentName.getPackageName(), 0);
-                    Resources packageRes = packageContext.getResources();
-                    source.description = packageRes.getString(ri.providerInfo.descriptionRes);
-                } catch (PackageManager.NameNotFoundException|Resources.NotFoundException e) {
-                    Log.e(TAG, "Can't read package resources for source " + source.componentName);
-                }
+            if (mSelectedProvider != null) {
+                provider.selected = mSelectedProvider.equals(provider.componentName);
             }
             Bundle metaData = ri.providerInfo.metaData;
-            source.color = Color.WHITE;
             if (metaData != null) {
                 String settingsActivity = metaData.getString("settingsActivity");
                 if (!TextUtils.isEmpty(settingsActivity)) {
-                    source.settingsActivity = ComponentName.unflattenFromString(
+                    provider.settingsActivity = ComponentName.unflattenFromString(
                             ri.providerInfo.packageName + "/" + settingsActivity);
                 }
 
                 String setupActivity = metaData.getString("setupActivity");
                 if (!TextUtils.isEmpty(setupActivity)) {
-                    source.setupActivity = ComponentName.unflattenFromString(
+                    provider.setupActivity = ComponentName.unflattenFromString(
                             ri.providerInfo.packageName + "/" + setupActivity);
-                }
-
-                source.color = metaData.getInt("color", source.color);
-
-                try {
-                    float[] hsv = new float[3];
-                    Color.colorToHSV(source.color, hsv);
-                    boolean adjust = false;
-                    if (hsv[2] < 0.8f) {
-                        hsv[2] = 0.8f;
-                        adjust = true;
-                    }
-                    if (hsv[1] > 0.4f) {
-                        hsv[1] = 0.4f;
-                        adjust = true;
-                    }
-                    if (adjust) {
-                        source.color = Color.HSVToColor(hsv);
-                    }
-                    if (Color.alpha(source.color) != 255) {
-                        source.color = Color.argb(255,
-                                Color.red(source.color),
-                                Color.green(source.color),
-                                Color.blue(source.color));
-                    }
-                } catch (IllegalArgumentException ignored) {
                 }
             }
 
-            mSources.add(source);
+            mProviders.add(provider);
         }
 
         final String appPackage = getContext().getPackageName();
-        Collections.sort(mSources, (s1, s2) -> {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                boolean target1IsO = s1.targetSdkVersion >= Build.VERSION_CODES.O;
-                boolean target2IsO = s2.targetSdkVersion >= Build.VERSION_CODES.O;
-                if (target1IsO && !target2IsO) {
-                    return 1;
-                } else if (!target1IsO && target2IsO) {
-                    return -1;
-                }
+        final ComponentName singleComponentName = new ComponentName(getContext(), SingleArtProvider.class);
+        final ComponentName legacyComponentName = new ComponentName(getContext(), LegacyArtProvider.class);
+        Collections.sort(mProviders, (s1, s2) -> {
+            // LegacyArtProvider is always last
+            if (s1.componentName.equals(legacyComponentName)) {
+                return 1;
+            } else if (s2.componentName.equals(legacyComponentName)) {
+                return -1;
             }
+            // SingleArtProvider is either first (if selected), or last (if not selected)
+            if (s1.componentName.equals(singleComponentName)) {
+                return s1.selected ? -1 : 1;
+            } else if (s2.componentName.equals(singleComponentName)) {
+                return s2.selected ? 1 : -1;
+            }
+            // Put other Muzei sources first
             String pn1 = s1.componentName.getPackageName();
             String pn2 = s2.componentName.getPackageName();
             if (!pn1.equals(pn2)) {
@@ -487,67 +283,50 @@ public class ChooseSourceFragment extends Fragment {
                     return 1;
                 }
             }
-            return s1.label.compareTo(s2.label);
+            // Otherwise sort by title
+            return s1.title.compareTo(s2.title);
         });
 
-        redrawSources();
+        mAdapter.notifyDataSetChanged();
     }
 
-    private void redrawSources() {
-        if (mSourceContainerView == null || !isAdded()) {
-            return;
+    private class ChooseSourceAdapter extends RecyclerView.Adapter<SourceViewHolder> {
+        @Override
+        public SourceViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+            return new SourceViewHolder(getLayoutInflater()
+                    .inflate(R.layout.settings_choose_source_item, parent, false));
         }
 
-        mSourceContainerView.removeAllViews();
-        for (final Source source : mSources) {
-            source.rootView = LayoutInflater.from(getContext()).inflate(
-                    R.layout.settings_choose_source_item, mSourceContainerView, false);
+        @Override
+        public void onBindViewHolder(SourceViewHolder holder, int position) {
+            ProviderItem provider = mProviders.get(position);
 
-            source.selectSourceButton = source.rootView.findViewById(R.id.source_image);
-            source.selectSourceButton.setOnClickListener(view -> {
-                if (source.componentName.equals(mSelectedProvider)) {
+            holder.itemView.setOnClickListener(view -> {
+                if (provider.selected) {
                     if (getContext() instanceof Callbacks) {
                         ((Callbacks) getContext()).onRequestCloseActivity();
                     } else if (getParentFragment() instanceof Callbacks) {
                         ((Callbacks) getParentFragment()).onRequestCloseActivity();
                     }
-                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                        && source.targetSdkVersion >= Build.VERSION_CODES.O) {
-                    AlertDialog.Builder builder = new AlertDialog.Builder(getContext())
-                            .setTitle(R.string.action_source_target_too_high_title)
-                            .setMessage(R.string.action_source_target_too_high_message)
-                            .setNegativeButton(R.string.action_source_target_too_high_learn_more,
-                                    (dialog, which) -> startActivity(new Intent(Intent.ACTION_VIEW,
-                                            Uri.parse("https://medium.com/@ianhlake/the-muzei-plugin-api-and-androids-evolution-9b9979265cfb"))))
-                            .setPositiveButton(R.string.action_source_target_too_high_dismiss, null);
-                    final Intent sendFeedbackIntent = new Intent(Intent.ACTION_VIEW,
-                            Uri.parse("https://play.google.com/store/apps/details?id="
-                                    + source.componentName.getPackageName()));
-                    if (sendFeedbackIntent.resolveActivity(getContext().getPackageManager()) != null) {
-                        builder.setNeutralButton(
-                                getString(R.string.action_source_target_too_high_send_feedback, source.label),
-                                (dialog, which) -> startActivity(sendFeedbackIntent));
-                    }
-                    builder.show();
-                } else if (source.setupActivity != null) {
+                } else if (provider.setupActivity != null) {
                     Bundle bundle = new Bundle();
-                    bundle.putString(FirebaseAnalytics.Param.ITEM_ID, source.componentName.flattenToShortString());
-                    bundle.putString(FirebaseAnalytics.Param.ITEM_NAME, source.label);
+                    bundle.putString(FirebaseAnalytics.Param.ITEM_ID, provider.componentName.flattenToShortString());
+                    bundle.putString(FirebaseAnalytics.Param.ITEM_NAME, provider.title);
                     bundle.putString(FirebaseAnalytics.Param.ITEM_CATEGORY, "sources");
                     FirebaseAnalytics.getInstance(getContext()).logEvent(FirebaseAnalytics.Event.VIEW_ITEM, bundle);
-                    mCurrentInitialSetupSource = source.componentName;
-                    launchSourceSetup(source);
+                    mCurrentInitialSetupSource = provider.componentName;
+                    launchSourceSetup(provider);
                 } else {
                     Bundle bundle = new Bundle();
-                    bundle.putString(FirebaseAnalytics.Param.ITEM_ID, source.componentName.flattenToShortString());
+                    bundle.putString(FirebaseAnalytics.Param.ITEM_ID, provider.componentName.flattenToShortString());
                     bundle.putString(FirebaseAnalytics.Param.CONTENT_TYPE, "sources");
                     FirebaseAnalytics.getInstance(getContext()).logEvent(FirebaseAnalytics.Event.SELECT_CONTENT, bundle);
-                    ProviderManager.getInstance(getContext()).selectProvider(source.componentName);
+                    ProviderManager.getInstance(getContext()).selectProvider(provider.componentName);
                 }
             });
 
-            source.selectSourceButton.setOnLongClickListener(v -> {
-                final String pkg = source.componentName.getPackageName();
+            holder.itemView.setOnLongClickListener(v -> {
+                final String pkg = provider.componentName.getPackageName();
                 if (TextUtils.equals(pkg, getContext().getPackageName())) {
                     // Don't open Muzei's app info
                     return false;
@@ -562,37 +341,58 @@ public class ChooseSourceFragment extends Fragment {
                 return true;
             });
 
-            float alpha = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                    && source.targetSdkVersion >= Build.VERSION_CODES.O
-                    ? ALPHA_DISABLED
-                    : ALPHA_UNSELECTED;
-            source.rootView.setAlpha(alpha);
+            holder.sourceImage.setImageDrawable(
+                    new ColorDrawable(Color.argb(0x33, 0x00, 0x00, 0x00)));
+            holder.footer.setBackground(
+                    new ColorDrawable(Color.argb(0x77, 0x00, 0x00, 0x00)));
+            LiveData<Artwork> artworkLiveData = MuzeiDatabase.getInstance(getContext()).artworkDao()
+                    .getCurrentArtworkForProvider(provider.componentName);
+            artworkLiveData.observeForever(new Observer<Artwork>() {
+                @Override
+                public void onChanged(@Nullable Artwork artwork) {
+                    artworkLiveData.removeObserver(this);
+                    if (artwork == null) {
+                        return;
+                    }
+                    Picasso.with(getContext())
+                            .load(artwork.imageUri)
+                            .centerCrop()
+                            .placeholder(new ColorDrawable(Color.argb(0x33, 0x00, 0x00, 0x00)))
+                            .into(holder.sourceImage,
+                                    PicassoPalette.with(artwork.imageUri.toString(), holder.sourceImage)
+                                            .use(PicassoPalette.Profile.MUTED)
+                                            .intoBackground(holder.footer)
+                                            .intoTextColor(holder.sourceTitle)
+                                            .intoTextColor(holder.sourceDescription));
+                }
+            });
 
-            source.icon.setColorFilter(source.color, PorterDuff.Mode.SRC_ATOP);
-            source.selectSourceButton.setBackground(source.icon);
+            holder.sourceTitle.setText(provider.title);
 
-            TextView titleView = source.rootView.findViewById(R.id.source_title);
-            titleView.setText(source.label);
-            titleView.setTextColor(source.color);
+            holder.sourceDescription.setText("");
+            ProviderManager.getInstance(getContext()).getDescription(provider.componentName,
+                    holder.sourceDescription::setText);
 
-            updateSourceStatusUi(source);
-
-            source.settingsButton = source.rootView.findViewById(R.id.source_settings_button);
-            TooltipCompat.setTooltipText(source.settingsButton, source.settingsButton.getContentDescription());
-            source.settingsButton.setOnClickListener(view -> launchSourceSettings(source));
-
-            animateSettingsButton(source.settingsButton, false, false);
-
-            mSourceContainerView.addView(source.rootView);
+            holder.sourceSettingsButton.setVisibility(provider.selected ? View.VISIBLE : View.GONE);
+            TooltipCompat.setTooltipText(holder.sourceSettingsButton, holder.sourceSettingsButton.getContentDescription());
+            holder.sourceSettingsButton.setOnClickListener(view -> launchSourceSettings(provider));
         }
 
-        updateSelectedItem(mCurrentProviderLiveData.getValue(), false);
+        @Override
+        public long getItemId(int position) {
+            return mProviders.get(position).componentName.hashCode();
+        }
+
+        @Override
+        public int getItemCount() {
+            return mProviders.size();
+        }
     }
 
-    private void launchSourceSettings(Source source) {
+    private void launchSourceSettings(ProviderItem provider) {
         try {
             Intent settingsIntent = new Intent()
-                    .setComponent(source.settingsActivity)
+                    .setComponent(provider.settingsActivity)
                     .putExtra(MuzeiArtProvider.EXTRA_FROM_MUZEI_SETTINGS, true);
             startActivity(settingsIntent);
         } catch (ActivityNotFoundException | SecurityException e) {
@@ -600,10 +400,10 @@ public class ChooseSourceFragment extends Fragment {
         }
     }
 
-    private void launchSourceSetup(Source source) {
+    private void launchSourceSetup(ProviderItem provider) {
         try {
             Intent setupIntent = new Intent()
-                    .setComponent(source.setupActivity)
+                    .setComponent(provider.setupActivity)
                     .putExtra(MuzeiArtProvider.EXTRA_FROM_MUZEI_SETTINGS, true);
             startActivityForResult(setupIntent, REQUEST_EXTENSION_SETUP);
         } catch (ActivityNotFoundException | SecurityException e) {
@@ -629,67 +429,29 @@ public class ChooseSourceFragment extends Fragment {
         super.onActivityResult(requestCode, resultCode, data);
     }
 
-    private void updateSourceStatusUi(final Source source) {
-        if (source.rootView == null) {
-            return;
-        }
-        ProviderManager providerManager = ProviderManager.getInstance(getContext());
-        providerManager.getDescription(source.componentName, description -> ((TextView) source.rootView.findViewById(R.id.source_status)).setText(description));
-    }
-
-    private void prepareGenerateSourceImages() {
-        mImageFillPaint.setColor(Color.WHITE);
-        mImageFillPaint.setAntiAlias(true);
-        mAlphaPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.DST_OUT));
-        mSelectedSourceImage = new BitmapDrawable(getResources(),
-                generateSourceImage(ResourcesCompat.getDrawable(getResources(), R.drawable.ic_source_selected, null)));
-    }
-
-    private Bitmap generateSourceImage(Drawable image) {
-        Bitmap bitmap = Bitmap.createBitmap(mItemImageSize, mItemImageSize,
-                Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(bitmap);
-        mTempRectF.set(0, 0, mItemImageSize, mItemImageSize);
-        canvas.drawOval(mTempRectF, mImageFillPaint);
-        if (image != null) {
-            canvas.saveLayer(0, 0, mItemImageSize, mItemImageSize, mAlphaPaint,
-                    Canvas.ALL_SAVE_FLAG);
-            image.setBounds(0, 0, mItemImageSize, mItemImageSize);
-            image.draw(canvas);
-            canvas.restore();
-        }
-        return bitmap;
-    }
-
-    private void showScrollbar() {
-        mHandler.removeCallbacks(mHideScrollbarRunnable);
-        mScrollbar.setScrollRangeAndViewportWidth(
-                mSourceScrollerView.computeHorizontalScrollRange(),
-                mSourceScrollerView.getWidth());
-        mScrollbar.setScrollPosition(mSourceScrollerView.getScrollX());
-        mScrollbar.show();
-        mHandler.postDelayed(mHideScrollbarRunnable, SCROLLBAR_HIDE_DELAY_MILLIS);
-    }
-
-    private Runnable mHideScrollbarRunnable = new Runnable() {
-        @Override
-        public void run() {
-            mScrollbar.hide();
-        }
-    };
-
-    class Source {
-        View rootView;
-        Drawable icon;
-        int color;
-        String label;
-        int targetSdkVersion;
+    class ProviderItem {
         ComponentName componentName;
-        String description;
+        boolean selected;
+        String title;
         ComponentName settingsActivity;
-        View selectSourceButton;
-        View settingsButton;
         ComponentName setupActivity;
+    }
+
+    private class SourceViewHolder extends RecyclerView.ViewHolder {
+        final ImageView sourceImage;
+        final View footer;
+        final ImageButton sourceSettingsButton;
+        final TextView sourceTitle;
+        final TextView sourceDescription;
+
+        SourceViewHolder(View itemView) {
+            super(itemView);
+            sourceImage = itemView.findViewById(R.id.source_image);
+            footer = itemView.findViewById(R.id.footer);
+            sourceSettingsButton = itemView.findViewById(R.id.source_settings_button);
+            sourceTitle = itemView.findViewById(R.id.source_title);
+            sourceDescription = itemView.findViewById(R.id.source_description);
+        }
     }
 
     public interface Callbacks {
