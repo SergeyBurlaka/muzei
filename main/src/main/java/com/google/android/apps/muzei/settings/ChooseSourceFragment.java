@@ -232,6 +232,10 @@ public class ChooseSourceFragment extends Fragment {
                 PackageManager.GET_META_DATA);
 
         for (ResolveInfo ri : resolveInfos) {
+            if (!ri.providerInfo.enabled) {
+                // Skip any disabled MuzeiArtProvider
+                continue;
+            }
             ProviderItem provider = new ProviderItem();
             provider.title = ri.loadLabel(pm).toString();
             provider.componentName = new ComponentName(ri.providerInfo.packageName,
