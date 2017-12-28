@@ -32,8 +32,8 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import com.google.android.apps.muzei.settings.ChooseProviderFragment;
 import com.google.android.apps.muzei.settings.EffectsFragment;
-import com.google.android.apps.muzei.settings.ChooseSourceFragment;
 import com.google.android.apps.muzei.util.ScrimUtil;
 import com.google.firebase.analytics.FirebaseAnalytics;
 
@@ -44,7 +44,7 @@ import net.nurik.roman.muzei.R;
  * between various screens.
  */
 public class MainFragment extends Fragment implements FragmentManager.OnBackStackChangedListener,
-        ChooseSourceFragment.Callbacks {
+        ChooseProviderFragment.Callbacks {
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -110,12 +110,12 @@ public class MainFragment extends Fragment implements FragmentManager.OnBackStac
                     return true;
                 case R.id.main_choose_source:
                     FirebaseAnalytics.getInstance(getContext())
-                            .setCurrentScreen(getActivity(), "ChooseSource",
-                                    ChooseSourceFragment.class.getSimpleName());
+                            .setCurrentScreen(getActivity(), "ChooseProvider",
+                                    ChooseProviderFragment.class.getSimpleName());
                     getChildFragmentManager().popBackStack("main",
                             FragmentManager.POP_BACK_STACK_INCLUSIVE);
                     getChildFragmentManager().beginTransaction()
-                            .replace(R.id.container, new ChooseSourceFragment())
+                            .replace(R.id.container, new ChooseProviderFragment())
                             .addToBackStack("main")
                             .setTransition(FragmentTransaction.TRANSIT_FRAGMENT_FADE)
                             .commit();

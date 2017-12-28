@@ -73,7 +73,7 @@ import java.util.List;
 /**
  * Fragment for allowing the user to choose the active source.
  */
-public class ChooseSourceFragment extends Fragment {
+public class ChooseProviderFragment extends Fragment {
     private static final String TAG = "SettingsChooseSourceFrg";
 
     private static final String PLAY_STORE_PACKAGE_NAME = "com.android.vending";
@@ -86,9 +86,6 @@ public class ChooseSourceFragment extends Fragment {
     private ChooseSourceAdapter mAdapter;
 
     private ComponentName mCurrentInitialSetupSource;
-
-    public ChooseSourceFragment() {
-    }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -159,7 +156,7 @@ public class ChooseSourceFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
                              Bundle savedInstanceState) {
         return inflater.inflate(
-                R.layout.settings_choose_source_fragment, container, false);
+                R.layout.choose_provider_fragment, container, false);
     }
 
     @Override
@@ -300,7 +297,7 @@ public class ChooseSourceFragment extends Fragment {
         @Override
         public SourceViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
             return new SourceViewHolder(getLayoutInflater()
-                    .inflate(R.layout.provider_item, parent, false));
+                    .inflate(R.layout.choose_provider_item, parent, false));
         }
 
         @Override

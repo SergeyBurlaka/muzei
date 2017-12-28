@@ -45,7 +45,7 @@ import org.greenrobot.eventbus.Subscribe;
  * shows when pressing the settings button in the widget.
  */
 public class SettingsActivity extends AppCompatActivity
-        implements ChooseSourceFragment.Callbacks {
+        implements ChooseProviderFragment.Callbacks {
     public static final String EXTRA_START_SECTION =
             "com.google.android.apps.muzei.settings.extra.START_SECTION";
 
@@ -59,12 +59,12 @@ public class SettingsActivity extends AppCompatActivity
 
     @SuppressWarnings("unchecked")
     private static final Class<? extends Fragment>[] SECTION_FRAGMENTS = new Class[]{
-            ChooseSourceFragment.class,
+            ChooseProviderFragment.class,
             EffectsFragment.class,
     };
 
     private static final String[] SECTION_SCREEN_NAME = new String[]{
-            "ChooseSource",
+            "ChooseProvider",
             "Effects",
     };
 
