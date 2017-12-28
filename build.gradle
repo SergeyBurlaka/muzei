@@ -42,7 +42,7 @@ ext {
     targetSdkVersion = 25
 
     supportLibraryVersion = "27.0.2"
-    constraintLayoutVersion = "1.0.2"
+    constraintLayoutVersion = "1.1.0-beta4"
     lifecycleVersion = "1.0.0"
     roomVersion = "1.0.0"
     pagingVersion = "1.0.0-alpha4-1"

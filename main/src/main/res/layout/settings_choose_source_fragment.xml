@@ -28,7 +28,7 @@
         android:orientation="horizontal"
         app:layoutManager="GridLayoutManager"
         android:layout_gravity="center_vertical"
-        tools:listitem="@layout/settings_choose_source_item"
+        tools:listitem="@layout/provider_item"
         android:padding="16dp"
         android:clipToPadding="false"/>
 

@@ -30,14 +30,15 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.constraint.Group;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.RecyclerView;
-import android.support.v7.widget.TooltipCompat;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -46,12 +47,11 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageButton;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.github.florent37.picassopalette.PicassoPalette;
 import com.google.android.apps.muzei.api.provider.MuzeiArtProvider;
 import com.google.android.apps.muzei.legacy.LegacyArtProvider;
 import com.google.android.apps.muzei.notifications.NotificationSettingsDialogFragment;
@@ -61,6 +61,7 @@ import com.google.android.apps.muzei.room.Provider;
 import com.google.android.apps.muzei.single.SingleArtProvider;
 import com.google.android.apps.muzei.sync.ProviderManager;
 import com.google.firebase.analytics.FirebaseAnalytics;
+import com.squareup.picasso.Callback;
 import com.squareup.picasso.Picasso;
 
 import net.nurik.roman.muzei.R;
@@ -237,6 +238,7 @@ public class ChooseSourceFragment extends Fragment {
                 continue;
             }
             ProviderItem provider = new ProviderItem();
+            provider.icon = ri.loadIcon(pm);
             provider.title = ri.loadLabel(pm).toString();
             provider.componentName = new ComponentName(ri.providerInfo.packageName,
                     ri.providerInfo.name);
@@ -298,7 +300,7 @@ public class ChooseSourceFragment extends Fragment {
         @Override
         public SourceViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
             return new SourceViewHolder(getLayoutInflater()
-                    .inflate(R.layout.settings_choose_source_item, parent, false));
+                    .inflate(R.layout.provider_item, parent, false));
         }
 
         @Override
@@ -345,10 +347,11 @@ public class ChooseSourceFragment extends Fragment {
                 return true;
             });
 
-            holder.sourceImage.setImageDrawable(
-                    new ColorDrawable(Color.argb(0x33, 0x00, 0x00, 0x00)));
-            holder.footer.setBackground(
-                    new ColorDrawable(Color.argb(0x77, 0x00, 0x00, 0x00)));
+            holder.providerIcon.setImageDrawable(provider.icon);
+
+            holder.providerTitle.setText(provider.title);
+
+            holder.providerArtwork.setVisibility(View.GONE);
             LiveData<Artwork> artworkLiveData = MuzeiDatabase.getInstance(getContext()).artworkDao()
                     .getCurrentArtworkForProvider(provider.componentName);
             artworkLiveData.observeForever(new Observer<Artwork>() {
@@ -362,24 +365,22 @@ public class ChooseSourceFragment extends Fragment {
                             .load(artwork.imageUri)
                             .centerCrop()
                             .placeholder(new ColorDrawable(Color.argb(0x33, 0x00, 0x00, 0x00)))
-                            .into(holder.sourceImage,
-                                    PicassoPalette.with(artwork.imageUri.toString(), holder.sourceImage)
-                                            .use(PicassoPalette.Profile.MUTED)
-                                            .intoBackground(holder.footer)
-                                            .intoTextColor(holder.sourceTitle)
-                                            .intoTextColor(holder.sourceDescription));
+                            .into(holder.providerArtwork, holder);
                 }
             });
 
-            holder.sourceTitle.setText(provider.title);
+            holder.providerDescription.setText("");
+            ProviderManager.getInstance(getContext()).getDescription(provider.componentName, description -> {
+                if (TextUtils.isEmpty(description)) {
+                    holder.providerDescriptionGroup.setVisibility(View.GONE);
+                } else {
+                    holder.providerDescription.setText(description);
+                    holder.providerDescriptionGroup.setVisibility(View.VISIBLE);
+                }
+            });
 
-            holder.sourceDescription.setText("");
-            ProviderManager.getInstance(getContext()).getDescription(provider.componentName,
-                    holder.sourceDescription::setText);
-
-            holder.sourceSettingsButton.setVisibility(provider.selected ? View.VISIBLE : View.GONE);
-            TooltipCompat.setTooltipText(holder.sourceSettingsButton, holder.sourceSettingsButton.getContentDescription());
-            holder.sourceSettingsButton.setOnClickListener(view -> launchSourceSettings(provider));
+            holder.providerSettings.setVisibility(provider.selected ? View.VISIBLE : View.GONE);
+            holder.providerSettings.setOnClickListener(view -> launchSourceSettings(provider));
         }
 
         @Override
@@ -434,6 +435,7 @@ public class ChooseSourceFragment extends Fragment {
     }
 
     class ProviderItem {
+        Drawable icon;
         ComponentName componentName;
         boolean selected;
         String title;
@@ -441,20 +443,32 @@ public class ChooseSourceFragment extends Fragment {
         ComponentName setupActivity;
     }
 
-    private class SourceViewHolder extends RecyclerView.ViewHolder {
-        final ImageView sourceImage;
-        final View footer;
-        final ImageButton sourceSettingsButton;
-        final TextView sourceTitle;
-        final TextView sourceDescription;
+    private class SourceViewHolder extends RecyclerView.ViewHolder implements Callback {
+        final ImageView providerIcon;
+        final TextView providerTitle;
+        final ImageView providerArtwork;
+        final TextView providerDescription;
+        final Group providerDescriptionGroup;
+        final Button providerSettings;
 
         SourceViewHolder(View itemView) {
             super(itemView);
-            sourceImage = itemView.findViewById(R.id.source_image);
-            footer = itemView.findViewById(R.id.footer);
-            sourceSettingsButton = itemView.findViewById(R.id.source_settings_button);
-            sourceTitle = itemView.findViewById(R.id.source_title);
-            sourceDescription = itemView.findViewById(R.id.source_description);
+            providerIcon = itemView.findViewById(R.id.provider_icon);
+            providerTitle = itemView.findViewById(R.id.provider_title);
+            providerArtwork = itemView.findViewById(R.id.provider_artwork);
+            providerDescription = itemView.findViewById(R.id.provider_description);
+            providerDescriptionGroup = itemView.findViewById(R.id.provider_description_group);
+            providerSettings = itemView.findViewById(R.id.provider_settings);
+        }
+
+        @Override
+        public void onSuccess() {
+            providerArtwork.setVisibility(View.VISIBLE);
+        }
+
+        @Override
+        public void onError() {
+            providerArtwork.setVisibility(View.GONE);
         }
     }
 
