@@ -47,7 +47,6 @@
             android:authorities="com.google.android.apps.muzei.gallery"
             android:label="@string/gallery_title"
             android:description="@string/gallery_description"
-            android:icon="@drawable/gallery_ic_source"
             android:permission="com.google.android.apps.muzei.api.ACCESS_PROVIDER">
             <intent-filter>
                 <action android:name="com.google.android.apps.muzei.api.MuzeiArtProvider" />
@@ -56,7 +55,6 @@
                        android:value="com.google.android.apps.muzei.gallery.GallerySettingsActivity" />
             <meta-data android:name="setupActivity"
                        android:value="com.google.android.apps.muzei.gallery.GallerySetupActivity" />
-            <meta-data android:name="color" android:value="@color/gallery_theme_light" />
         </provider>
         <provider
             android:name="com.google.android.apps.muzei.gallery.GalleryArtDocumentsProvider"
