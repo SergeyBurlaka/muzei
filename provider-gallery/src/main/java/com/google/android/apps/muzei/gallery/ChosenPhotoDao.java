@@ -17,7 +17,6 @@
 package com.google.android.apps.muzei.gallery;
 
 import android.arch.lifecycle.LiveData;
-import android.arch.lifecycle.MutableLiveData;
 import android.arch.paging.DataSource;
 import android.arch.persistence.room.Dao;
 import android.arch.persistence.room.Insert;
@@ -48,27 +47,8 @@ import java.util.List;
  * Dao for {@link ChosenPhoto}
  */
 @Dao
-public abstract class ChosenPhotoDao {
+abstract class ChosenPhotoDao {
     private static final String TAG = "ChosenPhotoDao";
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    abstract long insertInternal(ChosenPhoto chosenPhoto);
-
-    public LiveData<Long> insert(Context context, final ChosenPhoto chosenPhoto) {
-        final MutableLiveData<Long> asyncInsert = new MutableLiveData<>();
-        if (persistUriAccess(context, chosenPhoto)) {
-            new Thread() {
-                @Override
-                public void run() {
-                    long id = insertInternal(chosenPhoto);
-                    asyncInsert.postValue(id);
-                }
-            }.start();
-        } else {
-            asyncInsert.setValue(0L);
-        }
-        return asyncInsert;
-    }
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract void insertAllInternal(List<ChosenPhoto> chosenPhoto);
