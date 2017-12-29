@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.muzei.examplesource500px;
+package com.example.muzei.exampleprovider500px;
 
 import com.firebase.jobdispatcher.Constraint;
 import com.firebase.jobdispatcher.FirebaseJobDispatcher;

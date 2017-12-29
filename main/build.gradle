@@ -108,10 +108,10 @@ dependencies {
 
     implementation project(':api')
     implementation project(':android-client-common')
-    implementation project(':source-legacy')
-    implementation project(':source-single')
-    implementation project(':source-featured-art')
-    implementation project(':source-gallery')
+    implementation project(':provider-legacy')
+    implementation project(':provider-single')
+    implementation project(':provider-featured-art')
+    implementation project(':provider-gallery')
 }
 
 apply plugin: 'com.google.gms.google-services'

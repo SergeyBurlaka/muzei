@@ -1,1 +1,1 @@
-include ':api', ':android-client-common', ':source-legacy', ':source-single', ':source-featured-art', ':source-gallery', ':main', ':wearable', ':example-source-500px', 'example-watchface'
+include ':api', ':android-client-common', ':provider-legacy', ':provider-single', ':provider-featured-art', ':provider-gallery', ':main', ':wearable', ':example-provider-500px', 'example-watchface'

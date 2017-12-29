@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.muzei.examplesource500px;
+package com.example.muzei.exampleprovider500px;
 
 public interface Config {
     String CONSUMER_KEY = "HocY5wY9GQaa9sdNO9HvagCGuGt34snyMTHckIQJ";
