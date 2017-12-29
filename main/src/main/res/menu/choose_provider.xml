@@ -21,7 +21,7 @@
         android:title="@string/notification_settings"
         app:showAsAction="never" />
     <item
-        android:id="@+id/action_get_more_sources"
-        android:title="@string/get_more_sources"
+        android:id="@+id/action_get_more_providers"
+        android:title="@string/get_more_providers"
         app:showAsAction="never" />
 </menu>

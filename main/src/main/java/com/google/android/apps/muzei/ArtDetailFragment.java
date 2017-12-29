@@ -71,7 +71,7 @@ public class ArtDetailFragment extends Fragment {
         @Override
         public void onChanged(@Nullable final Provider provider) {
             // Update overflow and next button
-            mOverflowSourceActionMap.clear();
+            mOverflowProviderActionMap.clear();
             mOverflowMenu.getMenu().clear();
             mOverflowMenu.inflate(R.menu.muzei_overflow);
             mSupportsNextArtwork = provider != null && provider.supportsNextArtwork;
@@ -109,12 +109,12 @@ public class ArtDetailFragment extends Fragment {
             }
 
             currentArtwork.getCommands(getContext(), commands -> {
-                int numSourceActions = Math.min(SOURCE_ACTION_IDS.length,
+                int numProviderActions = Math.min(PROVIDER_ACTION_IDS.length,
                         commands.size());
-                for (int i = 0; i < numSourceActions; i++) {
+                for (int i = 0; i < numProviderActions; i++) {
                     UserCommand action = commands.get(i);
-                    mOverflowSourceActionMap.put(SOURCE_ACTION_IDS[i], action.getId());
-                    mOverflowMenu.getMenu().add(0, SOURCE_ACTION_IDS[i], 0, action.getTitle());
+                    mOverflowProviderActionMap.put(PROVIDER_ACTION_IDS[i], action.getId());
+                    mOverflowMenu.getMenu().add(0, PROVIDER_ACTION_IDS[i], 0, action.getTitle());
                 }
             });
 
@@ -133,18 +133,18 @@ public class ArtDetailFragment extends Fragment {
     private Handler mHandler = new Handler();
     private View mContainerView;
     private PopupMenu mOverflowMenu;
-    private SparseIntArray mOverflowSourceActionMap = new SparseIntArray();
-    private static final int[] SOURCE_ACTION_IDS = {
-            R.id.source_action_1,
-            R.id.source_action_2,
-            R.id.source_action_3,
-            R.id.source_action_4,
-            R.id.source_action_5,
-            R.id.source_action_6,
-            R.id.source_action_7,
-            R.id.source_action_8,
-            R.id.source_action_9,
-            R.id.source_action_10,
+    private SparseIntArray mOverflowProviderActionMap = new SparseIntArray();
+    private static final int[] PROVIDER_ACTION_IDS = {
+            R.id.provider_action_1,
+            R.id.provider_action_2,
+            R.id.provider_action_3,
+            R.id.provider_action_4,
+            R.id.provider_action_5,
+            R.id.provider_action_6,
+            R.id.provider_action_7,
+            R.id.provider_action_8,
+            R.id.provider_action_9,
+            R.id.provider_action_10,
     };
     private View mChromeContainerView;
     private View mMetadataView;
@@ -218,7 +218,7 @@ public class ArtDetailFragment extends Fragment {
             if (context == null) {
                 return false;
             }
-            int id = mOverflowSourceActionMap.get(menuItem.getItemId());
+            int id = mOverflowProviderActionMap.get(menuItem.getItemId());
             if (id > 0) {
                 mCurrentArtwork.sendAction(getContext(), id);
                 return true;

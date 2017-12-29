@@ -15,8 +15,8 @@
   -->
 
 <resources>
-    <string name="legacy_source_title">Legacy Plugins</string>
-    <string name="legacy_source_description">Select plugins built with the legacy API</string>
+    <string name="legacy_source_title">Legacy Sources</string>
+    <string name="legacy_source_description">Select sources built with the legacy API</string>
     <string name="legacy_source_unavailable">Your selected source is unavailable. Switching to the default source.</string>
 
     <string name="legacy_settings_source_settings">Customize source</string>

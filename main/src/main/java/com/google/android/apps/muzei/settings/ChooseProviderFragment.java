@@ -71,10 +71,10 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Fragment for allowing the user to choose the active source.
+ * Fragment for allowing the user to choose the active provider.
  */
 public class ChooseProviderFragment extends Fragment {
-    private static final String TAG = "SettingsChooseSourceFrg";
+    private static final String TAG = "ChooseProviderFragment";
 
     private static final String PLAY_STORE_PACKAGE_NAME = "com.android.vending";
 
@@ -83,9 +83,9 @@ public class ChooseProviderFragment extends Fragment {
     private ComponentName mSelectedProvider;
     private List<ProviderItem> mProviders = new ArrayList<>();
 
-    private ChooseSourceAdapter mAdapter;
+    private ChooseProviderAdapter mAdapter;
 
-    private ComponentName mCurrentInitialSetupSource;
+    private ComponentName mCurrentInitialSetupProvider;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -98,7 +98,7 @@ public class ChooseProviderFragment extends Fragment {
         super.onAttach(context);
 
         Bundle bundle = new Bundle();
-        bundle.putString(FirebaseAnalytics.Param.ITEM_CATEGORY, "sources");
+        bundle.putString(FirebaseAnalytics.Param.ITEM_CATEGORY, "providers");
         FirebaseAnalytics.getInstance(context).logEvent(FirebaseAnalytics.Event.VIEW_ITEM_LIST, bundle);
 
         MuzeiDatabase.getInstance(context).providerDao().getCurrentProvider()
@@ -115,7 +115,7 @@ public class ChooseProviderFragment extends Fragment {
     @Override
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
         super.onCreateOptionsMenu(menu, inflater);
-        inflater.inflate(R.menu.settings_choose_source, menu);
+        inflater.inflate(R.menu.choose_provider, menu);
     }
 
     @Override
@@ -124,8 +124,8 @@ public class ChooseProviderFragment extends Fragment {
             case R.id.action_notification_settings:
                 NotificationSettingsDialogFragment.showSettings(this);
                 return true;
-            case R.id.action_get_more_sources:
-                FirebaseAnalytics.getInstance(getContext()).logEvent("more_sources_open", null);
+            case R.id.action_get_more_providers:
+                FirebaseAnalytics.getInstance(getContext()).logEvent("more_providers_open", null);
                 try {
                     Intent playStoreIntent = new Intent(Intent.ACTION_VIEW,
                             Uri.parse("http://play.google.com/store/search?q=Muzei&c=apps"))
@@ -164,8 +164,8 @@ public class ChooseProviderFragment extends Fragment {
         // Ensure we have the latest insets
         view.requestFitSystemWindows();
 
-        RecyclerView recyclerView = view.findViewById(R.id.source_list);
-        mAdapter = new ChooseSourceAdapter();
+        RecyclerView recyclerView = view.findViewById(R.id.provider_list);
+        mAdapter = new ChooseProviderAdapter();
         recyclerView.setAdapter(mAdapter);
 
         view.setAlpha(0);
@@ -175,14 +175,14 @@ public class ChooseProviderFragment extends Fragment {
     private BroadcastReceiver mPackagesChangedReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            updateSources();
+            updateProviders();
         }
     };
 
     @Override
     public void onResume() {
         super.onResume();
-        updateSources();
+        updateProviders();
 
         IntentFilter packageChangeIntentFilter = new IntentFilter();
         packageChangeIntentFilter.addAction(Intent.ACTION_PACKAGE_ADDED);
@@ -208,7 +208,7 @@ public class ChooseProviderFragment extends Fragment {
             return;
         }
 
-        // This is a newly selected source.
+        // This is a newly selected provider.
         for (final ProviderItem provider : mProviders) {
             if (provider.componentName.equals(previousSelectedProvider)) {
                 provider.selected = false;
@@ -221,7 +221,7 @@ public class ChooseProviderFragment extends Fragment {
         }
     }
 
-    public void updateSources() {
+    public void updateProviders() {
         mSelectedProvider = null;
         Intent queryIntent = new Intent(MuzeiArtProvider.ACTION_MUZEI_ART_PROVIDER);
         PackageManager pm = getContext().getPackageManager();
@@ -276,7 +276,7 @@ public class ChooseProviderFragment extends Fragment {
             } else if (s2.componentName.equals(singleComponentName)) {
                 return s2.selected ? 1 : -1;
             }
-            // Put other Muzei sources first
+            // Put other Muzei providers first
             String pn1 = s1.componentName.getPackageName();
             String pn2 = s2.componentName.getPackageName();
             if (!pn1.equals(pn2)) {
@@ -293,15 +293,15 @@ public class ChooseProviderFragment extends Fragment {
         mAdapter.notifyDataSetChanged();
     }
 
-    private class ChooseSourceAdapter extends RecyclerView.Adapter<SourceViewHolder> {
+    private class ChooseProviderAdapter extends RecyclerView.Adapter<ProviderViewHolder> {
         @Override
-        public SourceViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-            return new SourceViewHolder(getLayoutInflater()
+        public ProviderViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+            return new ProviderViewHolder(getLayoutInflater()
                     .inflate(R.layout.choose_provider_item, parent, false));
         }
 
         @Override
-        public void onBindViewHolder(SourceViewHolder holder, int position) {
+        public void onBindViewHolder(ProviderViewHolder holder, int position) {
             ProviderItem provider = mProviders.get(position);
 
             holder.itemView.setOnClickListener(view -> {
@@ -315,14 +315,14 @@ public class ChooseProviderFragment extends Fragment {
                     Bundle bundle = new Bundle();
                     bundle.putString(FirebaseAnalytics.Param.ITEM_ID, provider.componentName.flattenToShortString());
                     bundle.putString(FirebaseAnalytics.Param.ITEM_NAME, provider.title);
-                    bundle.putString(FirebaseAnalytics.Param.ITEM_CATEGORY, "sources");
+                    bundle.putString(FirebaseAnalytics.Param.ITEM_CATEGORY, "providers");
                     FirebaseAnalytics.getInstance(getContext()).logEvent(FirebaseAnalytics.Event.VIEW_ITEM, bundle);
-                    mCurrentInitialSetupSource = provider.componentName;
-                    launchSourceSetup(provider);
+                    mCurrentInitialSetupProvider = provider.componentName;
+                    launchProviderSetup(provider);
                 } else {
                     Bundle bundle = new Bundle();
                     bundle.putString(FirebaseAnalytics.Param.ITEM_ID, provider.componentName.flattenToShortString());
-                    bundle.putString(FirebaseAnalytics.Param.CONTENT_TYPE, "sources");
+                    bundle.putString(FirebaseAnalytics.Param.CONTENT_TYPE, "providers");
                     FirebaseAnalytics.getInstance(getContext()).logEvent(FirebaseAnalytics.Event.SELECT_CONTENT, bundle);
                     ProviderManager.getInstance(getContext()).selectProvider(provider.componentName);
                 }
@@ -377,7 +377,7 @@ public class ChooseProviderFragment extends Fragment {
             });
 
             holder.providerSettings.setVisibility(provider.selected ? View.VISIBLE : View.GONE);
-            holder.providerSettings.setOnClickListener(view -> launchSourceSettings(provider));
+            holder.providerSettings.setOnClickListener(view -> launchProviderSettings(provider));
         }
 
         @Override
@@ -391,40 +391,40 @@ public class ChooseProviderFragment extends Fragment {
         }
     }
 
-    private void launchSourceSettings(ProviderItem provider) {
+    private void launchProviderSettings(ProviderItem provider) {
         try {
             Intent settingsIntent = new Intent()
                     .setComponent(provider.settingsActivity)
                     .putExtra(MuzeiArtProvider.EXTRA_FROM_MUZEI_SETTINGS, true);
             startActivity(settingsIntent);
         } catch (ActivityNotFoundException | SecurityException e) {
-            Log.e(TAG, "Can't launch source settings.", e);
+            Log.e(TAG, "Can't launch provider settings.", e);
         }
     }
 
-    private void launchSourceSetup(ProviderItem provider) {
+    private void launchProviderSetup(ProviderItem provider) {
         try {
             Intent setupIntent = new Intent()
                     .setComponent(provider.setupActivity)
                     .putExtra(MuzeiArtProvider.EXTRA_FROM_MUZEI_SETTINGS, true);
             startActivityForResult(setupIntent, REQUEST_EXTENSION_SETUP);
         } catch (ActivityNotFoundException | SecurityException e) {
-            Log.e(TAG, "Can't launch source setup.", e);
+            Log.e(TAG, "Can't launch provider setup.", e);
         }
     }
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == REQUEST_EXTENSION_SETUP) {
-            if (resultCode == Activity.RESULT_OK && mCurrentInitialSetupSource != null) {
+            if (resultCode == Activity.RESULT_OK && mCurrentInitialSetupProvider != null) {
                 Bundle bundle = new Bundle();
-                bundle.putString(FirebaseAnalytics.Param.ITEM_ID, mCurrentInitialSetupSource.flattenToShortString());
-                bundle.putString(FirebaseAnalytics.Param.CONTENT_TYPE, "sources");
+                bundle.putString(FirebaseAnalytics.Param.ITEM_ID, mCurrentInitialSetupProvider.flattenToShortString());
+                bundle.putString(FirebaseAnalytics.Param.CONTENT_TYPE, "providers");
                 FirebaseAnalytics.getInstance(getContext()).logEvent(FirebaseAnalytics.Event.SELECT_CONTENT, bundle);
-                ProviderManager.getInstance(getContext()).selectProvider(mCurrentInitialSetupSource);
+                ProviderManager.getInstance(getContext()).selectProvider(mCurrentInitialSetupProvider);
             }
 
-            mCurrentInitialSetupSource = null;
+            mCurrentInitialSetupProvider = null;
             return;
         }
 
@@ -440,7 +440,7 @@ public class ChooseProviderFragment extends Fragment {
         ComponentName setupActivity;
     }
 
-    private class SourceViewHolder extends RecyclerView.ViewHolder implements Callback {
+    private class ProviderViewHolder extends RecyclerView.ViewHolder implements Callback {
         final ImageView providerIcon;
         final TextView providerTitle;
         final ImageView providerArtwork;
@@ -448,7 +448,7 @@ public class ChooseProviderFragment extends Fragment {
         final Group providerDescriptionGroup;
         final Button providerSettings;
 
-        SourceViewHolder(View itemView) {
+        ProviderViewHolder(View itemView) {
             super(itemView);
             providerIcon = itemView.findViewById(R.id.provider_icon);
             providerTitle = itemView.findViewById(R.id.provider_title);

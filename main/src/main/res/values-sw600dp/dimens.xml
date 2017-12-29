@@ -33,5 +33,5 @@
 
     <dimen name="tutorial_content_margin">0dp</dimen>
 
-    <dimen name="settings_choose_source_item_width">280dp</dimen>
+    <dimen name="choose_provider_item_width">280dp</dimen>
 </resources>

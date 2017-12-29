@@ -60,7 +60,7 @@ public class PhotoSetAsTargetActivity extends Activity {
                 Bundle bundle = new Bundle();
                 bundle.putString(FirebaseAnalytics.Param.ITEM_ID,
                         new ComponentName(context, SingleArtProvider.class).flattenToShortString());
-                bundle.putString(FirebaseAnalytics.Param.CONTENT_TYPE, "sources");
+                bundle.putString(FirebaseAnalytics.Param.CONTENT_TYPE, "providers");
                 FirebaseAnalytics.getInstance(context).logEvent(FirebaseAnalytics.Event.SELECT_CONTENT, bundle);
                 ProviderManager.getInstance(context).selectProvider(new ComponentName(context, SingleArtProvider.class), () -> {
                     startActivity(Intent.makeMainActivity(new ComponentName(

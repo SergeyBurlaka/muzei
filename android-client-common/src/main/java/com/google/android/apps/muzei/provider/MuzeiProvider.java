@@ -220,7 +220,7 @@ public class MuzeiProvider extends ContentProvider {
         String finalSelection = DatabaseUtils.concatenateWhere(selection,
                 "artwork.sourceComponentName = " + provider.componentName.flattenToShortString());
         if (MuzeiProvider.uriMatcher.match(uri) == ARTWORK_ID) {
-            // If the incoming URI is for a single source identified by its ID, appends "_ID = <artworkId>"
+            // If the incoming URI is for a single artwork identified by its ID, appends "_ID = <artworkId>"
             // to the where clause, so that it selects that single piece of artwork
             finalSelection = DatabaseUtils.concatenateWhere(selection,
                     "artwork._id = " + uri.getLastPathSegment());

@@ -108,7 +108,7 @@ public class MainFragment extends Fragment implements FragmentManager.OnBackStac
                             .setTransition(FragmentTransaction.TRANSIT_FRAGMENT_FADE)
                             .commit();
                     return true;
-                case R.id.main_choose_source:
+                case R.id.main_choose_provider:
                     FirebaseAnalytics.getInstance(getContext())
                             .setCurrentScreen(getActivity(), "ChooseProvider",
                                     ChooseProviderFragment.class.getSimpleName());

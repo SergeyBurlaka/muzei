@@ -49,11 +49,11 @@ public class SettingsActivity extends AppCompatActivity
     public static final String EXTRA_START_SECTION =
             "com.google.android.apps.muzei.settings.extra.START_SECTION";
 
-    public static final int START_SECTION_SOURCE = 0;
+    public static final int START_SECTION_CHOOSE_PROVIDER = 0;
     public static final int START_SECTION_ADVANCED = 1;
 
     private static final int[] SECTION_LABELS = new int[]{
-            R.string.section_choose_source,
+            R.string.section_choose_provider,
             R.string.section_advanced,
     };
 
@@ -68,7 +68,7 @@ public class SettingsActivity extends AppCompatActivity
             "Effects",
     };
 
-    private int mStartSection = START_SECTION_SOURCE;
+    private int mStartSection = START_SECTION_CHOOSE_PROVIDER;
 
     private ObjectAnimator mBackgroundAnimator;
     private boolean mPaused;
