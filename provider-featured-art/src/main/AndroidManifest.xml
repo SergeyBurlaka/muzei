@@ -21,10 +21,12 @@
         <!-- Replaced by FeaturedArtProvider -->
         <service android:name="com.google.android.apps.muzei.featuredart.FeaturedArtSource"
                  android:label="@string/featuredart_source_title"
-                 android:description="@string/featuredart_source_description">
+                 android:description="@string/featuredart_source_description"
+                 android:icon="@drawable/featuredart_ic_source">
             <intent-filter>
                 <action android:name="com.google.android.apps.muzei.api.MuzeiArtSource" />
             </intent-filter>
+            <meta-data android:name="color" android:value="@color/featuredart_color" />
             <meta-data
                 android:name="replacement"
                 android:value="com.google.android.apps.muzei.featuredart.FeaturedArtProvider" />
@@ -35,12 +37,10 @@
             android:authorities="com.google.android.apps.muzei.featuredart"
             android:label="@string/featuredart_source_title"
             android:description="@string/featuredart_source_description"
-            android:icon="@drawable/featuredart_ic_source"
             android:permission="com.google.android.apps.muzei.api.ACCESS_PROVIDER">
             <intent-filter>
                 <action android:name="com.google.android.apps.muzei.api.MuzeiArtProvider" />
             </intent-filter>
-            <meta-data android:name="color" android:value="@color/featuredart_color" />
         </provider>
         <provider
             android:name="com.google.android.apps.muzei.featuredart.FeaturedArtDocumentsProvider"
