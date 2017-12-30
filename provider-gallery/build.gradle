@@ -17,7 +17,7 @@
 apply plugin: 'com.android.library'
 
 dependencies {
-    implementation project(':api')
+    api project(':api')
     implementation "com.squareup.okhttp3:okhttp:$rootProject.ext.okhttpVersion"
     implementation "com.squareup.picasso:picasso:$rootProject.ext.picassoVersion"
     implementation "com.android.support:appcompat-v7:$rootProject.ext.supportLibraryVersion"

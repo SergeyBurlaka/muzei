@@ -17,7 +17,7 @@
 apply plugin: 'com.android.library'
 
 dependencies {
-    implementation project(':api')
+    api project(':api')
     implementation "com.squareup.okhttp3:okhttp:$rootProject.ext.okhttpVersion"
     implementation "com.android.support:customtabs:$rootProject.ext.supportLibraryVersion"
     implementation "com.firebase:firebase-jobdispatcher:$rootProject.ext.jobDispatcherVersion"

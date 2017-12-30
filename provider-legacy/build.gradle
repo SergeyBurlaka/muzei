@@ -17,12 +17,14 @@
 apply plugin: 'com.android.library'
 
 dependencies {
-    implementation project(':api')
+    api project(':api')
     implementation project(':android-client-common')
     api "android.arch.lifecycle:common-java8:$rootProject.ext.lifecycleVersion"
     implementation "com.android.support:support-compat:$rootProject.ext.supportLibraryVersion"
     implementation "com.android.support:appcompat-v7:$rootProject.ext.supportLibraryVersion"
-    implementation "com.google.firebase:firebase-core:$rootProject.ext.googlePlayServicesVersion"
+    implementation ("com.google.firebase:firebase-core:$rootProject.ext.googlePlayServicesVersion") {
+        exclude module: 'support-v4'
+    }
 }
 
 android {
