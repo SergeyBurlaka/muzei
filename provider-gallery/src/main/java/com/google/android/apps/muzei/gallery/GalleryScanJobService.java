@@ -86,7 +86,7 @@ public class GalleryScanJobService extends SimpleJobService {
                 if (chosenPhoto.isTreeUri && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                     rescanTreeUri(chosenPhoto);
                 } else {
-                    addUri(chosenPhoto.uri, chosenPhoto.uri);
+                    addUri(chosenPhoto.uri, chosenPhoto.getContentUri());
                 }
                 return RESULT_SUCCESS;
             }
@@ -101,7 +101,7 @@ public class GalleryScanJobService extends SimpleJobService {
                 if (chosenPhoto.isTreeUri && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                     rescanTreeUri(chosenPhoto);
                 } else {
-                    addUri(chosenPhoto.uri, chosenPhoto.uri);
+                    addUri(chosenPhoto.uri, chosenPhoto.getContentUri());
                 }
             }
             return RESULT_SUCCESS;
