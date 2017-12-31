@@ -84,7 +84,7 @@ public class GalleryScanJobService extends SimpleJobService {
                 ChosenPhoto chosenPhoto = GalleryDatabase.getInstance(this).chosenPhotoDao()
                         .getChosenPhotoBlocking(id);
                 if (chosenPhoto.isTreeUri && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    rescanTreeUri(chosenPhoto.uri);
+                    rescanTreeUri(chosenPhoto);
                 } else {
                     addUri(chosenPhoto.uri, chosenPhoto.uri);
                 }
@@ -99,7 +99,7 @@ public class GalleryScanJobService extends SimpleJobService {
             // Now add all of the chosen photos
             for (ChosenPhoto chosenPhoto : chosenPhotos) {
                 if (chosenPhoto.isTreeUri && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    rescanTreeUri(chosenPhoto.uri);
+                    rescanTreeUri(chosenPhoto);
                 } else {
                     addUri(chosenPhoto.uri, chosenPhoto.uri);
                 }
@@ -118,14 +118,21 @@ public class GalleryScanJobService extends SimpleJobService {
     }
 
     @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
-    private void rescanTreeUri(Uri treeUri) {
+    private void rescanTreeUri(ChosenPhoto chosenPhoto) {
+        Uri treeUri = chosenPhoto.uri;
         List<Uri> allImages = new ArrayList<>();
-        GalleryArtProvider.addAllImagesFromTree(this, allImages, treeUri,
-                DocumentsContract.getTreeDocumentId(treeUri));
-        // Shuffle all the images to give a random initial load order
-        Collections.shuffle(allImages, sRandom);
-        for (Uri uri : allImages) {
-            addUri(treeUri, uri);
+        try {
+            addAllImagesFromTree(allImages, treeUri,
+                    DocumentsContract.getTreeDocumentId(treeUri));
+            // Shuffle all the images to give a random initial load order
+            Collections.shuffle(allImages, sRandom);
+            for (Uri uri : allImages) {
+                addUri(treeUri, uri);
+            }
+        } catch (SecurityException e) {
+            Log.w(TAG, "Unable to load images from " + treeUri + ", deleting row", e);
+            GalleryDatabase.getInstance(this).chosenPhotoDao().delete(this,
+                    Collections.singletonList(chosenPhoto.id));
         }
     }
 
@@ -264,5 +271,39 @@ public class GalleryScanJobService extends SimpleJobService {
             Log.w(TAG, "Couldn't read image metadata.", e);
         }
         return null;
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
+    private void addAllImagesFromTree(final List<Uri> allImages, final Uri treeUri,
+                                    final String parentDocumentId) {
+        final Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri,
+                parentDocumentId);
+        Cursor children = null;
+        try {
+            children = getContentResolver().query(childrenUri,
+                    new String[]{DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_MIME_TYPE},
+                    null, null, null);
+        } catch (NullPointerException e) {
+            Log.e(TAG, "Error reading " + childrenUri, e);
+        }
+        if (children == null) {
+            return;
+        }
+        while (children.moveToNext()) {
+            String documentId = children.getString(
+                    children.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID));
+            String mimeType = children.getString(
+                    children.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE));
+            if (DocumentsContract.Document.MIME_TYPE_DIR.equals(mimeType)) {
+                // Recursively explore all directories
+                addAllImagesFromTree(allImages, treeUri, documentId);
+            } else if (mimeType != null && mimeType.startsWith("image/")) {
+                // Add images to the list
+                if (allImages != null) {
+                    allImages.add(DocumentsContract.buildDocumentUriUsingTree(treeUri, documentId));
+                }
+            }
+        }
+        children.close();
     }
 }

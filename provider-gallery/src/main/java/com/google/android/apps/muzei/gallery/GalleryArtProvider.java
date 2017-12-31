@@ -20,11 +20,7 @@ import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
-import android.net.Uri;
-import android.os.Build;
-import android.provider.DocumentsContract;
 import android.support.annotation.NonNull;
-import android.support.annotation.RequiresApi;
 import android.util.Log;
 
 import com.firebase.jobdispatcher.FirebaseJobDispatcher;
@@ -32,7 +28,6 @@ import com.firebase.jobdispatcher.GooglePlayDriver;
 import com.google.android.apps.muzei.api.provider.Artwork;
 import com.google.android.apps.muzei.api.provider.MuzeiArtProvider;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public class GalleryArtProvider extends MuzeiArtProvider {
@@ -74,72 +69,13 @@ public class GalleryArtProvider extends MuzeiArtProvider {
         }
         List<ChosenPhoto> chosenPhotos = GalleryDatabase.getInstance(context).chosenPhotoDao()
                 .getChosenPhotosBlocking();
-        int numImages = 0;
-        final ArrayList<Long> idsToDelete = new ArrayList<>();
-        for (ChosenPhoto chosenPhoto : chosenPhotos) {
-            if (chosenPhoto.isTreeUri && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                Uri treeUri = chosenPhoto.uri;
-                try {
-                    numImages += addAllImagesFromTree(context, null, treeUri,
-                            DocumentsContract.getTreeDocumentId(treeUri));
-                } catch (SecurityException e) {
-                    Log.w(TAG, "Unable to load images from " + treeUri + ", deleting row", e);
-                    idsToDelete.add(chosenPhoto.id);
-                }
-            } else {
-                numImages++;
-            }
+        if (chosenPhotos.isEmpty()) {
+            return context.getString(R.string.gallery_description);
         }
-        if (!idsToDelete.isEmpty()) {
-            final Context applicationContext = context.getApplicationContext();
-            new Thread() {
-                @Override
-                public void run() {
-                    GalleryDatabase.getInstance(applicationContext).chosenPhotoDao()
-                            .delete(applicationContext, idsToDelete);
-                }
-            }.start();
+        try (Cursor allImages = query(getContentUri(), new String[]{}, null, null, null)) {
+            int numImages = allImages != null ? allImages.getCount() : 0;
+            return context.getResources().getQuantityString(R.plurals.gallery_description_choice_template,
+                    numImages, numImages);
         }
-        return numImages > 0
-                ? context.getResources().getQuantityString(R.plurals.gallery_description_choice_template,
-                    numImages, numImages)
-                : context.getString(R.string.gallery_description);
-    }
-
-    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
-    static int addAllImagesFromTree(Context context, final List<Uri> allImages, final Uri treeUri,
-                                            final String parentDocumentId) {
-        final Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri,
-                parentDocumentId);
-        Cursor children = null;
-        try {
-            children = context.getContentResolver().query(childrenUri,
-                    new String[]{DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_MIME_TYPE},
-                    null, null, null);
-        } catch (NullPointerException e) {
-            Log.e(TAG, "Error reading " + childrenUri, e);
-        }
-        if (children == null) {
-            return 0;
-        }
-        int numImagesAdded = 0;
-        while (children.moveToNext()) {
-            String documentId = children.getString(
-                    children.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID));
-            String mimeType = children.getString(
-                    children.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE));
-            if (DocumentsContract.Document.MIME_TYPE_DIR.equals(mimeType)) {
-                // Recursively explore all directories
-                numImagesAdded += addAllImagesFromTree(context, allImages, treeUri, documentId);
-            } else if (mimeType != null && mimeType.startsWith("image/")) {
-                // Add images to the list
-                if (allImages != null) {
-                    allImages.add(DocumentsContract.buildDocumentUriUsingTree(treeUri, documentId));
-                }
-                numImagesAdded++;
-            }
-        }
-        children.close();
-        return numImagesAdded;
     }
 }
