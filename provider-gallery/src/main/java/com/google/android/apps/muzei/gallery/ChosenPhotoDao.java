@@ -30,9 +30,15 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Binder;
 import android.os.Build;
+import android.os.Bundle;
 import android.provider.DocumentsContract;
 import android.text.TextUtils;
 import android.util.Log;
+
+import com.firebase.jobdispatcher.FirebaseJobDispatcher;
+import com.firebase.jobdispatcher.GooglePlayDriver;
+import com.google.android.apps.muzei.api.provider.MuzeiArtProvider;
+import com.google.android.apps.muzei.api.provider.ProviderContract;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -122,6 +128,15 @@ abstract class ChosenPhotoDao {
                 }
             }
         }
+        // Now add the new photo to the GalleryArtProvider
+        Bundle extras = new Bundle();
+        extras.putLong(GalleryScanJobService.SCAN_CHOSEN_PHOTO_ID, chosenPhoto.id);
+        FirebaseJobDispatcher dispatcher = new FirebaseJobDispatcher(new GooglePlayDriver(context));
+        dispatcher.mustSchedule(dispatcher.newJobBuilder()
+                .setService(GalleryScanJobService.class)
+                .setExtras(extras)
+                .setTag("gallery")
+                .build());
         return true;
     }
 
@@ -206,6 +221,10 @@ abstract class ChosenPhotoDao {
      */
     private void deleteBackingPhotos(Context context, List<ChosenPhoto> chosenPhotos) {
         for (ChosenPhoto chosenPhoto : chosenPhotos) {
+            Uri contentUri = MuzeiArtProvider.getContentUri(context, GalleryArtProvider.class);
+            context.getContentResolver().delete(contentUri,
+                    ProviderContract.Artwork.METADATA + "=?",
+                    new String[] {chosenPhoto.uri.toString()});
             File file = GalleryProvider.getCacheFileForUri(context, chosenPhoto.uri);
             if (file != null && file.exists()) {
                 if (!file.delete()) {

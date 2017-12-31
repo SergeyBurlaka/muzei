@@ -28,6 +28,7 @@ import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.annotation.RequiresApi;
 import android.support.media.ExifInterface;
 import android.support.v4.content.ContextCompat;
 import android.text.TextUtils;
@@ -35,9 +36,9 @@ import android.text.format.DateUtils;
 import android.util.Log;
 
 import com.firebase.jobdispatcher.JobParameters;
-import com.firebase.jobdispatcher.JobService;
 import com.firebase.jobdispatcher.SimpleJobService;
 import com.google.android.apps.muzei.api.provider.Artwork;
+import com.google.android.apps.muzei.api.provider.MuzeiArtProvider;
 import com.google.android.apps.muzei.api.provider.ProviderContract;
 
 import java.io.IOException;
@@ -45,12 +46,13 @@ import java.io.InputStream;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
 
-public class GalleryJobService extends SimpleJobService {
+public class GalleryScanJobService extends SimpleJobService {
     private static final String TAG = "GalleryArtJob";
 
     private static final Random sRandom = new Random();
@@ -59,6 +61,8 @@ public class GalleryJobService extends SimpleJobService {
     private static final SimpleDateFormat sExifDateFormat = new SimpleDateFormat("yyyy:MM:dd HH:mm:ss");
 
     private static final Set<String> sOmitCountryCodes = new HashSet<>();
+    static final String SCAN_CHOSEN_PHOTO_ID = "SCAN_CHOSEN_PHOTO_ID";
+
     static {
         sOmitCountryCodes.add("US");
     }
@@ -73,73 +77,100 @@ public class GalleryJobService extends SimpleJobService {
 
     @Override
     public int onRunJob(final JobParameters job) {
+        if (job.getExtras() != null) {
+            long id = job.getExtras().getLong(SCAN_CHOSEN_PHOTO_ID, -1);
+            if (id != -1) {
+                deleteMediaUris();
+                ChosenPhoto chosenPhoto = GalleryDatabase.getInstance(this).chosenPhotoDao()
+                        .getChosenPhotoBlocking(id);
+                if (chosenPhoto.isTreeUri && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    rescanTreeUri(chosenPhoto.uri);
+                } else {
+                    addUri(chosenPhoto.uri, chosenPhoto.uri);
+                }
+                return RESULT_SUCCESS;
+            }
+        }
         List<ChosenPhoto> chosenPhotos = GalleryDatabase.getInstance(this).chosenPhotoDao()
                 .getChosenPhotosBlocking();
         int numChosenUris = (chosenPhotos != null) ? chosenPhotos.size() : 0;
+        if (numChosenUris > 0) {
+            deleteMediaUris();
+            // Now add all of the chosen photos
+            for (ChosenPhoto chosenPhoto : chosenPhotos) {
+                if (chosenPhoto.isTreeUri && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    rescanTreeUri(chosenPhoto.uri);
+                } else {
+                    addUri(chosenPhoto.uri, chosenPhoto.uri);
+                }
+            }
+            return RESULT_SUCCESS;
+        }
+        // else, use Media URIs
+        return addMediaUri();
+    }
+
+    private void deleteMediaUris() {
+        Uri contentUri = MuzeiArtProvider.getContentUri(this, GalleryArtProvider.class);
+        getContentResolver().delete(contentUri,
+                ProviderContract.Artwork.METADATA + "=?",
+                new String[] {MediaStore.Images.Media.EXTERNAL_CONTENT_URI.toString()});
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
+    private void rescanTreeUri(Uri treeUri) {
+        List<Uri> allImages = new ArrayList<>();
+        GalleryArtProvider.addAllImagesFromTree(this, allImages, treeUri,
+                DocumentsContract.getTreeDocumentId(treeUri));
+        // Shuffle all the images to give a random initial load order
+        Collections.shuffle(allImages, sRandom);
+        for (Uri uri : allImages) {
+            addUri(treeUri, uri);
+        }
+    }
+
+    private int addMediaUri() {
+        if (ContextCompat.checkSelfPermission(this,
+                android.Manifest.permission.READ_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED) {
+            Log.w(TAG, "Missing read external storage permission.");
+            return RESULT_FAIL_NORETRY;
+        }
+        Cursor cursor = getContentResolver().query(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                new String[] { MediaStore.MediaColumns._ID },
+                MediaStore.Images.Media.BUCKET_DISPLAY_NAME + " NOT LIKE '%Screenshots%'",
+                null, null);
+        if (cursor == null) {
+            Log.w(TAG, "Empty cursor.");
+            return RESULT_FAIL_NORETRY;
+        }
+
+        int count = cursor.getCount();
+        if (count == 0) {
+            Log.d(TAG, "No photos in the gallery.");
+            return RESULT_FAIL_NORETRY;
+        }
 
         Artwork currentArtwork = ProviderContract.Artwork.getLastAddedArtwork(this, GalleryArtProvider.class);
         String lastToken = (currentArtwork != null) ? currentArtwork.getToken() : null;
 
         Uri imageUri;
-        if (numChosenUris > 0) {
-            // First build a list of all image URIs, recursively exploring any tree URIs that were added
-            List<Uri> allImages = new ArrayList<>(numChosenUris);
-            for (ChosenPhoto chosenPhoto : chosenPhotos) {
-                Uri chosenUri = chosenPhoto.getContentUri();
-                if (chosenPhoto.isTreeUri && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    Uri treeUri = chosenPhoto.uri;
-                    GalleryArtProvider.addAllImagesFromTree(this, allImages, treeUri,
-                            DocumentsContract.getTreeDocumentId(treeUri));
-                } else {
-                    allImages.add(chosenUri);
-                }
+        while (true) {
+            cursor.moveToPosition(sRandom.nextInt(count));
+            imageUri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                    cursor.getLong(0));
+            if (!imageUri.toString().equals(lastToken)) {
+                break;
             }
-            int numImages = allImages.size();
-            if (numImages == 0) {
-                Log.e(TAG, "No photos in the selected directories.");
-                return JobService.RESULT_FAIL_NORETRY;
-            }
-            while (true) {
-                imageUri = allImages.get(sRandom.nextInt(numImages));
-                if (numImages <= 1 || !imageUri.toString().equals(lastToken)) {
-                    break;
-                }
-            }
-        } else {
-            if (ContextCompat.checkSelfPermission(this,
-                    android.Manifest.permission.READ_EXTERNAL_STORAGE)
-                    != PackageManager.PERMISSION_GRANTED) {
-                Log.w(TAG, "Missing read external storage permission.");
-                return JobService.RESULT_FAIL_NORETRY;
-            }
-            Cursor cursor = getContentResolver().query(
-                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                    new String[] { MediaStore.MediaColumns._ID },
-                    MediaStore.Images.Media.BUCKET_DISPLAY_NAME + " NOT LIKE '%Screenshots%'",
-                    null, null);
-            if (cursor == null) {
-                Log.w(TAG, "Empty cursor.");
-                return JobService.RESULT_FAIL_NORETRY;
-            }
-
-            int count = cursor.getCount();
-            if (count == 0) {
-                Log.e(TAG, "No photos in the gallery.");
-                return JobService.RESULT_FAIL_NORETRY;
-            }
-
-            while (true) {
-                cursor.moveToPosition(sRandom.nextInt(count));
-                imageUri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                        cursor.getLong(0));
-                if (!imageUri.toString().equals(lastToken)) {
-                    break;
-                }
-            }
-
-            cursor.close();
         }
 
+        cursor.close();
+        addUri(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, imageUri);
+        return RESULT_SUCCESS;
+    }
+
+    private void addUri(Uri baseUri, Uri imageUri) {
         String token = imageUri.toString();
 
         // Retrieve metadata for item
@@ -167,8 +198,8 @@ public class GalleryJobService extends SimpleJobService {
                         .byline(byline)
                         .token(token)
                         .persistentUri(imageUri)
+                        .metadata(baseUri.toString())
                         .build());
-        return JobService.RESULT_SUCCESS;
     }
 
     @Nullable

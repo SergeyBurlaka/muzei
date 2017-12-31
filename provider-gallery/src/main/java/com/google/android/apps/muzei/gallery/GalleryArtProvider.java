@@ -27,7 +27,6 @@ import android.support.annotation.NonNull;
 import android.support.annotation.RequiresApi;
 import android.util.Log;
 
-import com.firebase.jobdispatcher.Constraint;
 import com.firebase.jobdispatcher.FirebaseJobDispatcher;
 import com.firebase.jobdispatcher.GooglePlayDriver;
 import com.google.android.apps.muzei.api.provider.Artwork;
@@ -43,9 +42,8 @@ public class GalleryArtProvider extends MuzeiArtProvider {
     protected void onLoadRequested(final boolean initial) {
         FirebaseJobDispatcher dispatcher = new FirebaseJobDispatcher(new GooglePlayDriver(getContext()));
         dispatcher.mustSchedule(dispatcher.newJobBuilder()
-                .setService(GalleryJobService.class)
+                .setService(GalleryScanJobService.class)
                 .setTag("gallery")
-                .addConstraint(Constraint.ON_ANY_NETWORK)
                 .build());
     }
 
