@@ -22,6 +22,7 @@ import android.arch.persistence.room.Dao;
 import android.arch.persistence.room.Insert;
 import android.arch.persistence.room.OnConflictStrategy;
 import android.arch.persistence.room.Query;
+import android.arch.persistence.room.TypeConverters;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
@@ -32,6 +33,7 @@ import android.os.Binder;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.DocumentsContract;
+import android.support.annotation.NonNull;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -39,12 +41,16 @@ import com.firebase.jobdispatcher.FirebaseJobDispatcher;
 import com.firebase.jobdispatcher.GooglePlayDriver;
 import com.google.android.apps.muzei.api.provider.MuzeiArtProvider;
 import com.google.android.apps.muzei.api.provider.ProviderContract;
+import com.google.android.apps.muzei.gallery.converter.UriTypeConverter;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.UnsupportedEncodingException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -96,7 +102,7 @@ abstract class ChosenPhotoDao {
                                 Intent.FLAG_GRANT_READ_URI_PERMISSION);
                         persistedPermission = true;
                         // If we have a persisted URI permission, we don't need a local copy
-                        File cachedFile = GalleryProvider.getCacheFileForUri(context, chosenPhoto.uri);
+                        File cachedFile = getCacheFileForUri(context, chosenPhoto.uri);
                         if (cachedFile != null && cachedFile.exists()) {
                             if (!cachedFile.delete()) {
                                 Log.w(TAG, "Unable to delete " + cachedFile);
@@ -110,7 +116,7 @@ abstract class ChosenPhotoDao {
                 if (!persistedPermission) {
                     // We only need to make a local copy if we weren't able to persist the permission
                     try {
-                        writeUriToFile(context, chosenPhoto.uri, GalleryProvider.getCacheFileForUri(context, chosenPhoto.uri));
+                        writeUriToFile(context, chosenPhoto.uri, getCacheFileForUri(context, chosenPhoto.uri));
                     } catch (IOException e) {
                         Log.e(TAG, "Error downloading gallery image " + chosenPhoto.uri, e);
                         return false;
@@ -206,6 +212,19 @@ abstract class ChosenPhotoDao {
         deleteInternal(ids);
     }
 
+    @TypeConverters(UriTypeConverter.class)
+    @Query("SELECT * FROM chosen_photos WHERE uri=:uri")
+    abstract List<ChosenPhoto> getChosenPhotoBlocking(Uri uri);
+
+    @TypeConverters(UriTypeConverter.class)
+    @Query("DELETE FROM chosen_photos WHERE uri=:uri")
+    abstract void deleteInternal(Uri uri);
+
+    void delete(Context context, Uri uri) {
+        deleteBackingPhotos(context, getChosenPhotoBlocking(uri));
+        deleteInternal(uri);
+    }
+
     @Query("DELETE FROM chosen_photos")
     abstract void deleteAllInternal();
 
@@ -225,7 +244,7 @@ abstract class ChosenPhotoDao {
             context.getContentResolver().delete(contentUri,
                     ProviderContract.Artwork.METADATA + "=?",
                     new String[] {chosenPhoto.uri.toString()});
-            File file = GalleryProvider.getCacheFileForUri(context, chosenPhoto.uri);
+            File file = getCacheFileForUri(context, chosenPhoto.uri);
             if (file != null && file.exists()) {
                 if (!file.delete()) {
                     Log.w(TAG, "Unable to delete " + file);
@@ -258,5 +277,42 @@ abstract class ChosenPhotoDao {
                 }
             }
         }
+    }
+
+    static File getCacheFileForUri(Context context, @NonNull Uri uri) {
+        File directory = new File(context.getExternalFilesDir(null), "gallery_images");
+        if (!directory.exists() && !directory.mkdirs()) {
+            return null;
+        }
+
+        // Create a unique filename based on the imageUri
+        StringBuilder filename = new StringBuilder();
+        filename.append(uri.getScheme()).append("_")
+                .append(uri.getHost()).append("_");
+        String encodedPath = uri.getEncodedPath();
+        if (!TextUtils.isEmpty(encodedPath)) {
+            int length = encodedPath.length();
+            if (length > 60) {
+                encodedPath = encodedPath.substring(length - 60);
+            }
+            encodedPath = encodedPath.replace('/', '_');
+            filename.append(encodedPath).append("_");
+        }
+        try {
+            MessageDigest md = MessageDigest.getInstance("MD5");
+            md.update(uri.toString().getBytes("UTF-8"));
+            byte[] digest = md.digest();
+            for (byte b : digest) {
+                if ((0xff & b) < 0x10) {
+                    filename.append("0").append(Integer.toHexString((0xFF & b)));
+                } else {
+                    filename.append(Integer.toHexString(0xFF & b));
+                }
+            }
+        } catch (NoSuchAlgorithmException | UnsupportedEncodingException e) {
+            filename.append(uri.toString().hashCode());
+        }
+
+        return new File(directory, filename.toString());
     }
 }

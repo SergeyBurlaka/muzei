@@ -28,6 +28,9 @@ import com.firebase.jobdispatcher.GooglePlayDriver;
 import com.google.android.apps.muzei.api.provider.Artwork;
 import com.google.android.apps.muzei.api.provider.MuzeiArtProvider;
 
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 
 public class GalleryArtProvider extends MuzeiArtProvider {
@@ -76,6 +79,19 @@ public class GalleryArtProvider extends MuzeiArtProvider {
             int numImages = allImages != null ? allImages.getCount() : 0;
             return context.getResources().getQuantityString(R.plurals.gallery_description_choice_template,
                     numImages, numImages);
+        }
+    }
+
+    @NonNull
+    @Override
+    protected InputStream openFile(@NonNull Artwork artwork) throws IOException {
+        try {
+            return super.openFile(artwork);
+        } catch (IllegalArgumentException|UnsupportedOperationException|NullPointerException e) {
+            Log.d(TAG, "Unable to load " + artwork.getPersistentUri() + ", deleting the row", e);
+            GalleryDatabase.getInstance(getContext()).chosenPhotoDao().delete(
+                    getContext(), artwork.getPersistentUri());
+            throw new FileNotFoundException("No permission to load " + artwork.getPersistentUri());
         }
     }
 }

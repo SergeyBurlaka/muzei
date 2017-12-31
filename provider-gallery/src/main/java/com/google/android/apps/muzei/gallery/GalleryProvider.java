@@ -19,19 +19,14 @@ package com.google.android.apps.muzei.gallery;
 import android.content.ContentProvider;
 import android.content.ContentUris;
 import android.content.ContentValues;
-import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
 import android.support.annotation.NonNull;
-import android.text.TextUtils;
 import android.util.Log;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.UnsupportedEncodingException;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.Collections;
 
 /**
@@ -78,7 +73,7 @@ public class GalleryProvider extends ContentProvider {
         if (chosenPhoto == null) {
             throw new FileNotFoundException("Unable to load " + uri);
         }
-        final File file = getCacheFileForUri(getContext(), chosenPhoto.uri);
+        final File file = ChosenPhotoDao.getCacheFileForUri(getContext(), chosenPhoto.uri);
         if ((file == null || !file.exists()) && getContext() != null) {
             // Assume we have persisted URI permission to the imageUri and can read the image directly from the imageUri
             try {
@@ -92,43 +87,6 @@ public class GalleryProvider extends ContentProvider {
             }
         }
         return ParcelFileDescriptor.open(file, ParcelFileDescriptor.parseMode(mode));
-    }
-
-    static File getCacheFileForUri(Context context, @NonNull Uri uri) {
-        File directory = new File(context.getExternalFilesDir(null), "gallery_images");
-        if (!directory.exists() && !directory.mkdirs()) {
-            return null;
-        }
-
-        // Create a unique filename based on the imageUri
-        StringBuilder filename = new StringBuilder();
-        filename.append(uri.getScheme()).append("_")
-                .append(uri.getHost()).append("_");
-        String encodedPath = uri.getEncodedPath();
-        if (!TextUtils.isEmpty(encodedPath)) {
-            int length = encodedPath.length();
-            if (length > 60) {
-                encodedPath = encodedPath.substring(length - 60);
-            }
-            encodedPath = encodedPath.replace('/', '_');
-            filename.append(encodedPath).append("_");
-        }
-        try {
-            MessageDigest md = MessageDigest.getInstance("MD5");
-            md.update(uri.toString().getBytes("UTF-8"));
-            byte[] digest = md.digest();
-            for (byte b : digest) {
-                if ((0xff & b) < 0x10) {
-                    filename.append("0").append(Integer.toHexString((0xFF & b)));
-                } else {
-                    filename.append(Integer.toHexString(0xFF & b));
-                }
-            }
-        } catch (NoSuchAlgorithmException | UnsupportedEncodingException e) {
-            filename.append(uri.toString().hashCode());
-        }
-
-        return new File(directory, filename.toString());
     }
 
     @Override

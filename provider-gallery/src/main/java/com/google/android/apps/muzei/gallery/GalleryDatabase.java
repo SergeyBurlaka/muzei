@@ -124,7 +124,7 @@ abstract class GalleryDatabase extends RoomDatabase {
             Cursor data = database.query("SELECT uri FROM chosen_photos");
             while (data.moveToNext()) {
                 Uri imageUri = Uri.parse(data.getString(0));
-                File cachedFile = GalleryProvider.getCacheFileForUri(applicationContext, imageUri);
+                File cachedFile = ChosenPhotoDao.getCacheFileForUri(applicationContext, imageUri);
                 if (cachedFile == null || !cachedFile.exists()) {
                     // If we don't have a cached file, then we must have permission to the
                     // underlying URI

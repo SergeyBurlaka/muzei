@@ -41,6 +41,7 @@ import com.google.android.apps.muzei.api.provider.Artwork;
 import com.google.android.apps.muzei.api.provider.MuzeiArtProvider;
 import com.google.android.apps.muzei.api.provider.ProviderContract;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.ParseException;
@@ -81,13 +82,8 @@ public class GalleryScanJobService extends SimpleJobService {
             long id = job.getExtras().getLong(SCAN_CHOSEN_PHOTO_ID, -1);
             if (id != -1) {
                 deleteMediaUris();
-                ChosenPhoto chosenPhoto = GalleryDatabase.getInstance(this).chosenPhotoDao()
-                        .getChosenPhotoBlocking(id);
-                if (chosenPhoto.isTreeUri && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    rescanTreeUri(chosenPhoto);
-                } else {
-                    addUri(chosenPhoto.uri, chosenPhoto.getContentUri());
-                }
+                scanChosenPhoto(GalleryDatabase.getInstance(this).chosenPhotoDao()
+                        .getChosenPhotoBlocking(id));
                 return RESULT_SUCCESS;
             }
         }
@@ -98,11 +94,7 @@ public class GalleryScanJobService extends SimpleJobService {
             deleteMediaUris();
             // Now add all of the chosen photos
             for (ChosenPhoto chosenPhoto : chosenPhotos) {
-                if (chosenPhoto.isTreeUri && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    rescanTreeUri(chosenPhoto);
-                } else {
-                    addUri(chosenPhoto.uri, chosenPhoto.getContentUri());
-                }
+                scanChosenPhoto(chosenPhoto);
             }
             return RESULT_SUCCESS;
         }
@@ -117,8 +109,21 @@ public class GalleryScanJobService extends SimpleJobService {
                 new String[] {MediaStore.Images.Media.EXTERNAL_CONTENT_URI.toString()});
     }
 
+    private void scanChosenPhoto(ChosenPhoto chosenPhoto) {
+        if (chosenPhoto.isTreeUri && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            addTreeUri(chosenPhoto);
+        } else {
+            File cachedFile = ChosenPhotoDao.getCacheFileForUri(this, chosenPhoto.uri);
+            if (cachedFile != null && cachedFile.exists()) {
+                addUri(chosenPhoto.uri, Uri.fromFile(cachedFile));
+            } else {
+                addUri(chosenPhoto.uri, chosenPhoto.uri);
+            }
+        }
+    }
+
     @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
-    private void rescanTreeUri(ChosenPhoto chosenPhoto) {
+    private void addTreeUri(ChosenPhoto chosenPhoto) {
         Uri treeUri = chosenPhoto.uri;
         List<Uri> allImages = new ArrayList<>();
         try {
