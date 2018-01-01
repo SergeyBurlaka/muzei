@@ -45,6 +45,7 @@ import com.google.android.apps.muzei.room.MuzeiDatabase;
 import com.google.android.apps.muzei.room.Provider;
 import com.google.android.apps.muzei.room.Source;
 import com.google.android.apps.muzei.room.SourceDao;
+import com.google.android.apps.muzei.sync.ProviderManager;
 import com.google.firebase.analytics.FirebaseAnalytics;
 
 import java.util.HashSet;
@@ -227,11 +228,22 @@ public class LegacySourceManager implements DefaultLifecycleObserver, Observer<P
         ComponentName componentName = new ComponentName(info.packageName, info.name);
         SourceDao sourceDao = MuzeiDatabase.getInstance(mContext).sourceDao();
         Source existingSource = sourceDao.getSourceByComponentNameBlocking(componentName);
-        // Filter out invalid sources. This can be due any of the following conditions:
-        // 1. The source being disabled
-        // 2. The source having a replacement MuzeiArtProvider that should be used instead
-        if (!info.isEnabled() ||
-                (metaData != null && metaData.containsKey("replacement"))) {
+        if (metaData != null && metaData.containsKey("replacement")) {
+            // Skip sources having a replacement MuzeiArtProvider that should be used instead
+            if (existingSource != null) {
+                if (existingSource.selected) {
+                    // If this is the selected source, switch Muzei to the new MuzeiArtProvider
+                    // rather than continue to use the legacy MuzeiArtSource
+                    @SuppressWarnings("ConstantConditions")
+                    ComponentName replacement = new ComponentName(mContext.getPackageName(),
+                            metaData.getString("replacement"));
+                    ProviderManager.getInstance(mContext).selectProvider(replacement);
+                }
+                sourceDao.delete(existingSource);
+            }
+            return;
+        } else if (!info.isEnabled()) {
+            // Disabled sources can't be used
             if (existingSource != null) {
                 sourceDao.delete(existingSource);
             }
