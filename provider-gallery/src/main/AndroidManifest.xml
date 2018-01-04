@@ -44,7 +44,7 @@
         </service>
         <provider
             android:name="com.google.android.apps.muzei.gallery.GalleryArtProvider"
-            android:authorities="com.google.android.apps.muzei.gallery"
+            android:authorities="com.google.android.apps.muzei.gallery.art"
             android:label="@string/gallery_title"
             android:description="@string/gallery_description"
             android:permission="com.google.android.apps.muzei.api.ACCESS_PROVIDER">
@@ -58,7 +58,7 @@
         </provider>
         <provider
             android:name="com.google.android.apps.muzei.gallery.GalleryArtDocumentsProvider"
-            android:authorities="com.google.android.apps.muzei.gallery.documents"
+            android:authorities="com.google.android.apps.muzei.gallery.art.documents"
             android:grantUriPermissions="true"
             android:exported="true"
             android:permission="android.permission.MANAGE_DOCUMENTS">
