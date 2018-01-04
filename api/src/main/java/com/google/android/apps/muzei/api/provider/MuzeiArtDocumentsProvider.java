@@ -28,6 +28,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Point;
 import android.net.Uri;
+import android.os.Binder;
 import android.os.Build;
 import android.os.CancellationSignal;
 import android.os.ParcelFileDescriptor;
@@ -150,6 +151,7 @@ public class MuzeiArtDocumentsProvider extends DocumentsProvider {
             int artworkCount;
             Uri contentUri = MuzeiArtProvider.getContentUri(context,
                     new ComponentName(providerInfo.packageName, providerInfo.name));
+            long token = Binder.clearCallingIdentity();
             try (Cursor artwork = context.getContentResolver().query(contentUri,
                     null, null, null ,null)) {
                 if (artwork == null) {
@@ -157,6 +159,8 @@ public class MuzeiArtDocumentsProvider extends DocumentsProvider {
                     continue;
                 }
                 artworkCount = artwork.getCount();
+            } finally {
+                Binder.restoreCallingIdentity(token);
             }
             if (artworkCount == 0) {
                 Log.i(TAG, "No artwork found for MuzeiArtProvider " + providerAuthority + ", skipping");
@@ -186,12 +190,17 @@ public class MuzeiArtDocumentsProvider extends DocumentsProvider {
                 ProviderContract.Artwork.BYLINE + " LIKE ? OR " +
                 ProviderContract.Artwork.ATTRIBUTION + " LIKE ?";
         String likeAnyPositionQuery = "%" + query + "%";
-        includeAllArtwork(rootId, result, context.getContentResolver().query(
-                MuzeiArtProvider.getContentUri(context, new ComponentName(context, rootId)),
-                null,
-                selection,
-                new String[] { likeAnyPositionQuery, likeAnyPositionQuery, likeAnyPositionQuery },
-                ProviderContract.Artwork.DATE_MODIFIED));
+        long token = Binder.clearCallingIdentity();
+        try {
+            includeAllArtwork(rootId, result, context.getContentResolver().query(
+                    MuzeiArtProvider.getContentUri(context, new ComponentName(context, rootId)),
+                    null,
+                    selection,
+                    new String[]{likeAnyPositionQuery, likeAnyPositionQuery, likeAnyPositionQuery},
+                    ProviderContract.Artwork.DATE_MODIFIED));
+        } finally {
+            Binder.restoreCallingIdentity(token);
+        }
         return result;
     }
 
@@ -215,9 +224,14 @@ public class MuzeiArtDocumentsProvider extends DocumentsProvider {
         if (context == null) {
             return result;
         }
-        includeAllArtwork(parentDocumentId, result, context.getContentResolver().query(
-                MuzeiArtProvider.getContentUri(context, new ComponentName(context, parentDocumentId)),
-                null, null, null, null));
+        long token = Binder.clearCallingIdentity();
+        try {
+            includeAllArtwork(parentDocumentId, result, context.getContentResolver().query(
+                    MuzeiArtProvider.getContentUri(context, new ComponentName(context, parentDocumentId)),
+                    null, null, null, null));
+        } finally {
+            Binder.restoreCallingIdentity(token);
+        }
         return result;
     }
 
@@ -273,8 +287,13 @@ public class MuzeiArtDocumentsProvider extends DocumentsProvider {
             Uri contentUri = ContentUris.withAppendedId(
                     MuzeiArtProvider.getContentUri(context, new ComponentName(context, providerName)),
                     Long.parseLong(splitDocumentId[1]));
-            includeAllArtwork(providerName, result, context.getContentResolver().query(contentUri,
-                    null, null, null, null));
+            long token = Binder.clearCallingIdentity();
+            try {
+                includeAllArtwork(providerName, result, context.getContentResolver().query(contentUri,
+                        null, null, null, null));
+            } finally {
+                Binder.restoreCallingIdentity(token);
+            }
         }
         return result;
     }
@@ -293,7 +312,12 @@ public class MuzeiArtDocumentsProvider extends DocumentsProvider {
         Uri contentUri = ContentUris.withAppendedId(
                 MuzeiArtProvider.getContentUri(context, new ComponentName(context, providerName)),
                 Long.parseLong(splitDocumentId[1]));
-        return context.getContentResolver().openFileDescriptor(contentUri, mode, signal);
+        long token = Binder.clearCallingIdentity();
+        try {
+            return context.getContentResolver().openFileDescriptor(contentUri, mode, signal);
+        } finally {
+            Binder.restoreCallingIdentity(token);
+        }
     }
 
     @Override
@@ -304,8 +328,13 @@ public class MuzeiArtDocumentsProvider extends DocumentsProvider {
         }
         if (documentId != null && documentId.indexOf('/') != -1) {
             String[] splitDocumentId = documentId.split("/");
-            return openArtworkThumbnail(splitDocumentId[0], Long.parseLong(splitDocumentId[1]),
-                    sizeHint, signal);
+            long token = Binder.clearCallingIdentity();
+            try {
+                return openArtworkThumbnail(splitDocumentId[0], Long.parseLong(splitDocumentId[1]),
+                        sizeHint, signal);
+            } finally {
+                Binder.restoreCallingIdentity(token);
+            }
         }
         return null;
     }
