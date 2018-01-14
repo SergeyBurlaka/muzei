@@ -259,7 +259,10 @@ public abstract class MuzeiArtProvider extends ContentProvider {
         PackageManager pm = context.getPackageManager();
         String authority;
         try {
-            ProviderInfo info = pm.getProviderInfo(provider, 0);
+            ProviderInfo info = pm.getProviderInfo(provider,
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+                            ? PackageManager.MATCH_DISABLED_COMPONENTS
+                            : PackageManager.GET_DISABLED_COMPONENTS);
             authority = info.authority;
         } catch (PackageManager.NameNotFoundException e) {
             throw new IllegalArgumentException("Invalid MuzeiArtProvider: " + provider, e);
@@ -506,7 +509,10 @@ public abstract class MuzeiArtProvider extends ContentProvider {
         }
         try {
             ProviderInfo info = context.getPackageManager().getProviderInfo(
-                    new ComponentName(context, getClass()), 0);
+                    new ComponentName(context, getClass()),
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+                            ? PackageManager.MATCH_DISABLED_COMPONENTS
+                            : PackageManager.GET_DISABLED_COMPONENTS);
             return info.descriptionRes != 0 ? context.getString(info.descriptionRes) : "";
         } catch (PackageManager.NameNotFoundException e) {
             // Wtf?

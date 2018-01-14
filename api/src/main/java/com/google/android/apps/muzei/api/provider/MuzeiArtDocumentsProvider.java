@@ -135,7 +135,10 @@ public class MuzeiArtDocumentsProvider extends DocumentsProvider {
                     AUTHORITY_SUFFIX + ", found " + authority);
             }
             String providerAuthority = authority.substring(0, authority.lastIndexOf(AUTHORITY_SUFFIX));
-            ProviderInfo providerInfo = pm.resolveContentProvider(providerAuthority, 0);
+            ProviderInfo providerInfo = pm.resolveContentProvider(providerAuthority,
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+                            ? PackageManager.MATCH_DISABLED_COMPONENTS
+                            : PackageManager.GET_DISABLED_COMPONENTS);
             if (providerInfo == null) {
                 throw new IllegalStateException("Authority " + providerAuthority +
                         " does not correspond with a valid ContentProvider.");
