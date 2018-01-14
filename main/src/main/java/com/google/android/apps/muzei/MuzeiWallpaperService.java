@@ -86,7 +86,7 @@ public class MuzeiWallpaperService extends GLWallpaperService implements Lifecyc
         mLifecycle.addObserver(new NotificationUpdater(this));
         mLifecycle.addObserver(new WearableController(this));
         mLifecycle.addObserver(new WidgetUpdater(this));
-        ProviderManager.getInstance(this).observe(this, null);
+        ProviderManager.getInstance(this).observe(this, provider -> {});
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
             mLifecycle.addObserver(new ArtworkInfoShortcutController(this, this));
         }
